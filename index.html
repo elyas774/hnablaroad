@@ -841,8 +841,9 @@ label{color:#c4d4da;}
           </div>
           <div class="grid grid-2"><div class="field"><label>نوع الأسئلة</label><select id="leaderExamType"><option value="mixed">متنوع</option><option value="truefalse">صح أو خطأ</option><option value="multiple">اختيار من متعدد</option><option value="essay">مقالي / كتابي</option></select></div><div class="field"><label>مستوى الصعوبة</label><select id="leaderExamDifficulty"><option value="medium">متوسط</option><option value="hard">صعب</option></select></div></div>
           <div class="field"><label>النص التعليمي</label><textarea id="leaderExamSource" rows="5" maxlength="12000" placeholder="الصق نص الدرس هنا..."></textarea></div>
-          <button class="btn gold block" onclick="publishLeaderExam()">نشر الاختبار للطلاب</button>
+          <button class="btn gold block" onclick="publishLeaderExam()">توليد أسئلة للمراجعة</button>
         </div>
+        <div id="leaderExamPreview" style="margin-top:12px;"></div>
         <div id="publishedExamsBox" style="margin-top:12px;"></div>
       </div>
 
@@ -900,9 +901,10 @@ label{color:#c4d4da;}
       <div class="card" style="margin-top:16px;">
         <div class="eyebrow" style="margin-bottom:10px;">طلب إجازة فردية</div>
         <div class="grid grid-2"><div class="field"><label>البداية</label><input id="leaveRequestStart" type="datetime-local"></div><div class="field"><label>النهاية</label><input id="leaveRequestEnd" type="datetime-local"></div></div>
-        <div class="grid grid-2"><div class="field"><label>نوع الطلب</label><select id="leaveRequestType"><option value="عادية">إجازة عادية</option><option value="طارئة">إجازة طارئة</option><option value="مرضية">إجازة مرضية (تفاصيلها للقائد فقط)</option><option value="دراسة">اختبارات أو التزام دراسي</option><option value="ظرف خاص">ظرف خاص</option></select></div><div class="field"><label>الوضع المطلوب</label><select id="leaveRequestMode"><option value="full">كاملة</option><option value="light">خفيفة</option><option value="meetings">اجتماعات</option><option value="custom">مخصصة</option></select></div></div>
+        <div class="grid grid-2"><div class="field"><label>نوع الطلب</label><select id="leaveRequestType"><option value="عادية">إجازة عادية</option><option value="طارئة">إجازة طارئة</option><option value="مرضية">إجازة مرضية (لا تكتب تفاصيل طبية)</option><option value="دراسة">اختبارات أو التزام دراسي</option><option value="ظرف خاص">ظرف خاص</option></select></div><div class="field"><label>الوضع المطلوب</label><select id="leaveRequestMode" onchange="togglePersonalLeaveRules()"><option value="full">كاملة</option><option value="light">خفيفة</option><option value="meetings">اجتماعات</option><option value="emergency">طارئة</option><option value="custom">مخصصة</option></select></div></div>
         <div class="field"><label>السبب</label><textarea id="leaveRequestReason" rows="3" maxlength="1000" placeholder="اكتب السبب بوضوح، وتجنب البيانات الحساسة غير الضرورية..."></textarea></div>
         <label class="remember-label"><input id="leaveProtectStreak" type="checkbox" checked><span>حماية سلسلة الحضور خلال الإجازة</span></label>
+        <div id="personalLeaveRulesBox" class="card" style="padding:12px;margin:8px 0;"></div>
         <div class="field" style="margin-top:12px;"><label>مرفق اختياري (صورة أو PDF، حد أقصى 2MB)</label><input id="leaveRequestFile" type="file" accept="image/*,.pdf"></div>
         <button class="btn gold block" onclick="submitLeaveRequest()">إرسال طلب الإجازة</button>
         <div class="d" style="margin-top:8px;">يحلل الذكاء الاصطناعي اكتمال الطلب والتعارضات، لكن اعتماد الطلب بيد القائد.</div>
@@ -1909,7 +1911,7 @@ function getTaskCycleKey(group, now = new Date()){
   return 'meeting-' + (next && next.date ? next.date.toISOString() : now.toISOString());
 }
 async function checkTaskRenewal(){
-  if(isLeaveRuleEnabled('tasks')) return;
+  if(leaveIsActive(state.vacations)&&leaveRulesForRecord(state.vacations).tasks) return;
   if(!state.users.length) return;
   if(!state.customTasks || typeof state.customTasks !== 'object') state.customTasks = {daily:[], meeting:[], weekly:[]};
   if(!Array.isArray(state.customTasks.daily)) state.customTasks.daily = [];
@@ -2159,16 +2161,33 @@ function buildNav(){
   nav.querySelectorAll('.nav-page').forEach(btn=>btn.addEventListener('click',()=>showPage(btn.dataset.page)));
 }
 
-function learnerSnapshot(user){
-  const att=ensureAttendance(user),results=Object.values(user?.publishedExamResults||{}),answered=results.reduce((n,r)=>n+(r.answers||[]).length,0),correct=results.reduce((n,r)=>n+(r.answers||[]).filter(a=>a.isCorrect===true).length,0),completed=(user?.completedTasks||[]).filter(x=>typeof x!=='string').length;
-  return {userId:user.id,name:user.name,points:Number(user.points||0),totalPoints:Number(getTotalPoints(user)),rank:(typeof getRank==='function'&&getRank(user)?.title)||'',attendanceStreak:Number(att.streak||0),lastAttendance:att.lastDate||null,attendanceDays:(att.dates||[]).length,completedTasks:completed,examCount:results.length,answeredQuestions:answered,correctAnswers:correct,accuracy:answered?Math.round(correct/answered*100):null,hasExamReview:results.some(r=>(r.answers||[]).some(a=>a.type==='essay'&&a.leaderReviewed!==true)),activeLeave:activeLeaveForUser(user)?leaveLabel(activeLeaveForUser(user)):null};
+function learnerSnapshot(user,alias){
+  const att=ensureAttendance(user),results=Object.values(user?.publishedExamResults||{}),answers=results.flatMap(r=>Array.isArray(r.answers)?r.answers:[]),objective=answers.filter(a=>a.type!=='essay'),correct=objective.filter(a=>a.isCorrect===true).length,completed=Array.isArray(user?.completedTasks)?user.completedTasks.filter(x=>typeof x!=='string'):[],recentTasks=completed.slice(-20),taskTrend={daily:0,weekly:0,meeting:0,other:0};
+  recentTasks.forEach(t=>{const k=String(t.cycleKey||'');if(k.startsWith('daily-'))taskTrend.daily++;else if(k.startsWith('weekly-'))taskTrend.weekly++;else if(k.startsWith('meeting-'))taskTrend.meeting++;else taskTrend.other++;});
+  const recentExams=results.slice(-8).map(r=>{const a=Array.isArray(r.answers)?r.answers:[],o=a.filter(x=>x.type!=='essay');return {date:r.date||null,answered:o.length,correct:o.filter(x=>x.isCorrect===true).length,wrong:o.filter(x=>x.isCorrect===false).length,essayPending:a.filter(x=>x.type==='essay'&&x.leaderReviewed!==true).length};});
+  const rec=user?.smartRecResult||null,leave=activeLeaveForUser(user);
+  return {student:alias||'الطالب',points:Number(user?.points||0),totalPoints:Number(getTotalPoints(user)),rank:(typeof getRank==='function'&&getRank(user)?.title)||'',attendanceStreak:Number(att.streak||0),lastAttendance:att.lastDate||null,attendanceDays:(att.dates||[]).length,completedTasks:completed.length,recentTaskTrend:taskTrend,examCount:results.length,answeredQuestions:objective.length,correctAnswers:correct,wrongAnswers:objective.filter(a=>a.isCorrect===false).length,accuracy:objective.length?Math.round(correct/objective.length*100):null,recentExams,essayReviewsPending:answers.filter(a=>a.type==='essay'&&a.leaderReviewed!==true).length,recitation:rec?{score:Number(rec.percent||0),status:String(rec.status||'غير محدد'),skipped:!!rec.skipped,date:rec.date||null}:null,memorizationActivities:(user?.memorizationLog||[]).length,activeLeave:leave?{label:leaveLabel(leave),mode:leave.mode,scope:leave.scope||'individual',start:leave.start||null,end:leave.end||null,rules:leaveRulesForRecord(leave)}:null};
 }
 function smartProfileMarkup(profile){ if(!profile)return '<div class="empty">لم يُبنَ ملف ذكي بعد. اضغط الزر ليحلل الذكاء بياناتك الحالية.</div>'; return `<div class="ai-result"><h3>${escapeHtml(profile.headline||'ملف تعلمك')}</h3><p>${escapeHtml(profile.summary||'')}</p><div class="grid grid-2" style="margin-top:10px;"><div><b>نقاط القوة</b><ul>${(profile.strengths||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div><div><b>مجالات التركيز</b><ul>${(profile.focusAreas||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul></div></div><h4 style="margin-top:10px;">خطة الأسبوع</h4><ol>${(profile.weeklyPlan||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ol><div class="d" style="margin-top:8px;">الإجراءات التالية: ${(profile.nextActions||[]).map(x=>escapeHtml(x)).join(' • ')||'—'} ${profile.confidence!=null?`• ثقة التحليل ${escapeHtml(String(profile.confidence))}%`:''}</div>${(profile.riskFlags||[]).length?`<div class="status-warn" style="margin-top:8px;">تنبيهات متابعة: ${profile.riskFlags.map(x=>escapeHtml(x)).join(' • ')}</div>`:''}</div>`; }
 function renderSmartLearnerProfile(){ const box=document.getElementById('smartLearnerProfileBox'),u=me(); if(box&&u)box.innerHTML=smartProfileMarkup(u.smartLearningProfile); }
 async function callSmartAction(action,source){ const r=await fetch('/.netlify/functions/generate-exam',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action,source})}); const d=await r.json(); if(!r.ok)throw Error(d.error||'تعذر تشغيل الذكاء'); return d.result; }
-async function generateMySmartProfile(){ const u=me();if(!u)return;const box=document.getElementById('smartLearnerProfileBox');if(box)box.innerHTML='<div class="empty">جارٍ بناء ملفك التعلمي...</div>';try{const result=await callSmartAction('learnerProfile',JSON.stringify({generatedAt:new Date().toISOString(),student:learnerSnapshot(u),studySignals:{memorizationLog:(u.memorizationLog||[]).slice(-12),publishedExamResults:Object.values(u.publishedExamResults||{}).slice(-8),completedTasks:(u.completedTasks||[]).slice(-20),activeLeave:activeLeaveForUser(u)?{label:leaveLabel(activeLeaveForUser(u)),mode:activeLeaveForUser(u).mode}:null}},null,2));await updateUserSafely(u.id,x=>{x.smartLearningProfile=Object.assign({},result,{updatedAt:new Date().toISOString()});});u.smartLearningProfile=Object.assign({},result,{updatedAt:new Date().toISOString()});renderSmartLearnerProfile();toast('تم تحديث ملف التعلم الذكي');}catch(e){if(box)box.innerHTML=`<div class="empty">تعذر بناء الملف: ${escapeHtml(e.message)}</div>`;}}
-function renderLeaderSmartDashboard(){ const box=document.getElementById('leaderSmartDashboardBox'),u=me();if(!box||!u||!isLeader(u))return;const students=state.users.filter(x=>x.id!==u.id),snap=students.map(learnerSnapshot),saved=state.leaderAiDashboard;let html=`<div class="grid grid-2"><div class="card"><div class="eyebrow">عدد الطلاب</div><div style="font-size:24px;color:var(--gold-soft);">${students.length}</div></div><div class="card"><div class="eyebrow">يحتاجون متابعة حضور</div><div style="font-size:24px;color:var(--gold-soft);">${snap.filter(x=>!x.lastAttendance||x.attendanceStreak===0).length}</div></div></div>`;if(saved?.result){const r=saved.result;html+=`<div class="ai-result" style="margin-top:12px;"><h3>ملخص القائد</h3><p>${escapeHtml(r.overview||'')}</p><h4>الأولويات</h4>${(r.priorityStudents||[]).map(x=>`<div class="row-item"><div class="main"><div class="t">${escapeHtml(x.name)} <span class="pill ${x.priority==='high'?'gold':''}">${escapeHtml(x.priority)}</span></div><div class="d">${escapeHtml(x.reason)}</div><div class="d">الإجراء المقترح: ${escapeHtml(x.action)}</div></div></div>`).join('')}<h4 style="margin-top:10px;">أنماط عامة</h4><ul>${(r.patterns||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul><h4>توصيات القائد</h4><ul>${(r.recommendations||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>${(r.alerts||[]).length?`<div class="status-warn">تنبيهات: ${r.alerts.map(x=>escapeHtml(x)).join(' • ')}</div>`:''}<div class="d" style="margin-top:8px;">آخر تحليل: ${escapeHtml(saved.generatedAt||'—')}</div></div>`;}else html+='<div class="empty" style="margin-top:12px;">لم تُنشأ لوحة ذكية بعد.</div>';box.innerHTML=html; }
-async function generateLeaderDashboard(){ const u=me();if(!u||!isLeader(u))return;const box=document.getElementById('leaderSmartDashboardBox');if(box)box.innerHTML='<div class="empty">جارٍ تحليل صورة الطلاب...</div>';try{const students=state.users.filter(x=>x.id!==u.id).map(learnerSnapshot);const result=await callSmartAction('leaderDashboard',JSON.stringify({generatedAt:new Date().toISOString(),leader:{id:u.id,name:u.name},students,systemLinks:{attendance:'سجل الحضور',points:'النقاط والرتب',tasks:'المهام',exams:'نتائج الاختبارات',recitation:'التسميع الذكي',leave:'الإجازات'},rules:'التوصيات لا تنفذ خصمًا أو اعتمادًا تلقائيًا والقرار النهائي للقائد.'},null,2));state.leaderAiDashboard={result,generatedAt:new Date().toISOString(),by:u.name};await saveShared('leaderAiDashboard');renderLeaderSmartDashboard();toast('تم تحديث لوحة القائد الذكية');}catch(e){if(box)box.innerHTML=`<div class="empty">تعذر تحليل اللوحة: ${escapeHtml(e.message)}</div>`;}}
+async function generateMySmartProfile(){
+  const u=me();if(!u)return;const box=document.getElementById('smartLearnerProfileBox');if(box)box.innerHTML='<div class="empty">جارٍ بناء ملفك التعلمي...</div>';
+  try{const snapshot=learnerSnapshot(u,'الطالب الحالي');const result=await callSmartAction('learnerProfile',JSON.stringify({generatedAt:new Date().toISOString(),student:snapshot,studySignals:{recentMemorization:(u.memorizationLog||[]).slice(-12).map(x=>({date:x.date||null})),recentExams:snapshot.recentExams,recitation:snapshot.recitation,completedTaskTrend:snapshot.recentTaskTrend}},null,2));await updateUserSafely(u.id,x=>{x.smartLearningProfile=Object.assign({},result,{updatedAt:new Date().toISOString()});});u.smartLearningProfile=Object.assign({},result,{updatedAt:new Date().toISOString()});renderSmartLearnerProfile();toast('تم تحديث ملف التعلم الذكي');}
+  catch(e){if(box)box.innerHTML=`<div class="empty">تعذر بناء الملف: ${escapeHtml(e.message)}</div>`;}
+}
+function renderLeaderSmartDashboard(){ const box=document.getElementById('leaderSmartDashboardBox'),u=me();if(!box||!u||!isLeader(u))return;const students=state.users.filter(x=>x.id!==u.id),snap=students.map(learnerSnapshot),saved=getPrivateLeaderDashboard();let html=`<div class="grid grid-2"><div class="card"><div class="eyebrow">عدد الطلاب</div><div style="font-size:24px;color:var(--gold-soft);">${students.length}</div></div><div class="card"><div class="eyebrow">يحتاجون متابعة حضور</div><div style="font-size:24px;color:var(--gold-soft);">${snap.filter(x=>!x.lastAttendance||x.attendanceStreak===0).length}</div></div></div>`;if(saved?.result){const r=saved.result;html+=`<div class="ai-result" style="margin-top:12px;"><h3>ملخص القائد</h3><p>${escapeHtml(r.overview||'')}</p><h4>الأولويات</h4>${(r.priorityStudents||[]).map(x=>`<div class="row-item"><div class="main"><div class="t">${escapeHtml(leaderStudentNameFromAlias(x.userId||x.name))} <span class="pill ${x.priority==='high'?'gold':''}">${escapeHtml(x.priority)}</span></div><div class="d">${escapeHtml(x.reason)}</div><div class="d">الإجراء المقترح: ${escapeHtml(x.action)}</div></div></div>`).join('')}<h4 style="margin-top:10px;">أنماط عامة</h4><ul>${(r.patterns||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul><h4>توصيات القائد</h4><ul>${(r.recommendations||[]).map(x=>`<li>${escapeHtml(x)}</li>`).join('')}</ul>${(r.alerts||[]).length?`<div class="status-warn">تنبيهات: ${r.alerts.map(x=>escapeHtml(x)).join(' • ')}</div>`:''}<div class="d" style="margin-top:8px;">آخر تحليل: ${escapeHtml(saved.generatedAt||'—')}</div></div>`;}else html+='<div class="empty" style="margin-top:12px;">لم تُنشأ لوحة ذكية بعد.</div>';box.innerHTML=html; }
+function leaderStudentsInStableOrder(){return state.users.filter(x=>x.id!==me()?.id).slice().sort((a,b)=>String(a.id).localeCompare(String(b.id)));}
+function leaderAliasMap(){try{return JSON.parse(sessionStorage.getItem('hnablaroadLeaderAliases')||'{}');}catch(e){return {};}}
+function leaderAliasForUser(user){if(!user||!user.id)return 'طالب';const map=leaderAliasMap();if(!map[user.id]){const used=new Set(Object.values(map));let n=1;while(used.has('student_'+String(n).padStart(2,'0')))n++;map[user.id]='student_'+String(n).padStart(2,'0');try{sessionStorage.setItem('hnablaroadLeaderAliases',JSON.stringify(map));}catch(e){}}return map[user.id];}
+function leaderStudentNameFromAlias(alias){const users=state.users.filter(x=>x.id!==me()?.id);const u=users.find(x=>leaderAliasForUser(x)===String(alias||''));return u?u.name:String(alias||'طالب');}
+let privateLeaderDashboardMemory=null;
+function getPrivateLeaderDashboard(){try{return JSON.parse(sessionStorage.getItem('hnablaroadLeaderDashboard')||'null')||privateLeaderDashboardMemory;}catch(e){return privateLeaderDashboardMemory;}}
+async function generateLeaderDashboard(){
+  const u=me();if(!u||!isLeader(u))return;const box=document.getElementById('leaderSmartDashboardBox');if(box)box.innerHTML='<div class="empty">جارٍ تحليل صورة الطلاب...</div>';
+  try{const students=leaderStudentsInStableOrder().map(student=>learnerSnapshot(student,leaderAliasForUser(student)));const result=await callSmartAction('leaderDashboard',JSON.stringify({generatedAt:new Date().toISOString(),students,systemLinks:{attendance:'سجل الحضور',points:'النقاط والرتب',tasks:'المهام',exams:'نتائج الاختبارات',recitation:'التسميع الذكي',leave:'الإجازات'},rules:'التوصيات تعليمية فقط، لا تنفذ خصمًا أو اعتمادًا تلقائيًا. لا تتلق معلومات تعريفية عن الطلاب؛ استخدم رموز الطالب فقط. القرار النهائي بشري.'},null,2));const allowedAliases=new Set(students.map(x=>x.student));result.priorityStudents=(result.priorityStudents||[]).filter(x=>allowedAliases.has(x.userId)).map(x=>Object.assign({},x,{name:x.userId}));const privateDashboard={result,generatedAt:new Date().toISOString(),by:'القائد'};privateLeaderDashboardMemory=privateDashboard;try{sessionStorage.setItem('hnablaroadLeaderDashboard',JSON.stringify(privateDashboard));}catch(e){}renderLeaderSmartDashboard();toast('تم تحديث لوحة القائد الذكية');}
+  catch(e){if(box)box.innerHTML=`<div class="empty">تعذر تحليل اللوحة: ${escapeHtml(e.message)}</div>`;}
+}
 function showPage(id){
   if(id === 'leader' && !isLeader(me())) id = 'home';
   currentPage = id;
@@ -2314,6 +2333,7 @@ function getCompletion(user, taskId, cycleKey){
 }
 function taskActionHtml(task, user, cycleKey){
   const completion = getCompletion(user, task.id, cycleKey);
+  if(isLeaveRuleEnabledForUser(user,'tasks')) return completion?'<span class="pill gold">✅ تم قبل الإجازة</span>':'<span class="pill">موقوفة أثناء الإجازة</span>';
   if(completion){
     const proofHtml = proofButtonHtml(completion.proofType, completion.proofKey, completion.proofData);
     return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${proofHtml}<span class="pill gold">✅ تم</span><button class="btn sm ghost" onclick="undoTaskComplete('${task.id}','${cycleKey}')">تراجع</button></div>`;
@@ -2433,7 +2453,7 @@ async function handleTaskFile(event, taskId, cycleKey){
   input.value = '';
 }
 async function completeTaskWithProof(taskId, cycleKey, proofType, proofData){
-  const user = me(); if(!user) return; const task = getAllCurrentTasks().find(t => t.id === taskId); if(!task || getCompletion(user,taskId,cycleKey)) return;
+  const user = me(); if(!user) return; if(isLeaveRuleEnabledForUser(user,'tasks')){toast('المهام متوقفة أثناء الإجازة');return;} const task = getAllCurrentTasks().find(t => t.id === taskId); if(!task || getCompletion(user,taskId,cycleKey)) return;
   const proofKey = proofData ? taskProofKey(user.id, taskId, cycleKey) : null;
   const apply = u => { if(!u.completedTasks) u.completedTasks=[]; if(getCompletion(u,taskId,cycleKey)) return; u.completedTasks.push({id:taskId,cycleKey,proofType,proofKey,date:nowStr()}); awardPoints(u, task.points); if(task.title.includes('حفظ')){ if(!Array.isArray(u.memorizationLog)) u.memorizationLog=[]; u.memorizationLog.unshift({text:task.title,date:nowStr()}); } };
   apply(user); renderInjaz(); if(currentPage==='points') renderRanking(); renderLeaderCompletions();
@@ -2444,7 +2464,7 @@ async function completeTaskWithProof(taskId, cycleKey, proofType, proofData){
   toast('أحسنت! تم إضافة '+task.points+' نقطة'); await logDiwan('مهام','✅','أنجز '+user.name+' مهمة "'+task.title+'" وحصل على '+task.points+' نقطة');
 }
 async function undoTaskComplete(taskId,cycleKey){
-  const user=me(); const task=getAllCurrentTasks().find(t=>t.id===taskId); if(!user||!task) return;
+  const user=me(); if(user&&isLeaveRuleEnabledForUser(user,'tasks')){toast('لا يمكن تعديل إنجاز المهام أثناء الإجازة');return;} const task=getAllCurrentTasks().find(t=>t.id===taskId); if(!user||!task) return;
   const existing = getCompletion(user, taskId, cycleKey);
   const apply=u=>{ if(!u.completedTasks)return; const i=u.completedTasks.findIndex(c=>typeof c!=='string'&&c.id===taskId&&c.cycleKey===cycleKey); if(i>=0){u.completedTasks.splice(i,1);deductPointsFromUser(u, task.points);} };
   apply(user); renderInjaz(); if(currentPage==='points')renderRanking();
@@ -3855,7 +3875,7 @@ function renderStreak(){
   if(!numBox || !subBox || !btn) return;
   numBox.textContent = (att.streak || 0) + ' 🔥';
   const today = dateKey();
-  if(isVacationActive()) { subBox.textContent = '🌿 إجازة معلنة — تسجيل الحضور متوقف'; btn.disabled = true; btn.textContent = 'متوقف أثناء الإجازة'; return; }
+  if(isLeaveRuleEnabledForUser(user,'attendance')) { subBox.textContent = '🌿 إجازة معلنة — تسجيل الحضور متوقف'; btn.disabled = true; btn.textContent = 'متوقف أثناء الإجازة'; return; }
   if(att.lastDate === today){
     subBox.textContent = 'سجّلت حضورك اليوم، أحسنت!';
     btn.disabled = true;
@@ -3872,10 +3892,10 @@ function renderAttendancePage(){
   const num=document.getElementById('streakNum'); if(num)num.textContent=(att.streak||0)+' 🔥';
   const today=dateKey();
   if(btn){
-    btn.disabled=Boolean(isVacationActive() || att.lastDate===today);
-    btn.textContent=isVacationActive()?'متوقف أثناء الإجازة':(att.lastDate===today?'تم التسجيل ✓':'سجّل حضورك اليوم');
+    btn.disabled=Boolean(isLeaveRuleEnabledForUser(user,'attendance') || att.lastDate===today);
+    btn.textContent=isLeaveRuleEnabledForUser(user,'attendance')?'متوقف أثناء الإجازة':(att.lastDate===today?'تم التسجيل ✓':'سجّل حضورك اليوم');
   }
-  if(sub)sub.textContent=isVacationActive()?'🌿 إجازة معلنة — تسجيل الحضور متوقف':(att.lastDate===today?'سجّلت حضورك اليوم، أحسنت!':(att.streak>0?'حافظ على تتابعك، سجّل حضورك اليوم':'ابدأ سلسلة حضورك الآن'));
+  if(sub)sub.textContent=isLeaveRuleEnabledForUser(user,'attendance')?'🌿 إجازة معلنة — تسجيل الحضور متوقف':(att.lastDate===today?'سجّلت حضورك اليوم، أحسنت!':(att.streak>0?'حافظ على تتابعك، سجّل حضورك اليوم':'ابدأ سلسلة حضورك الآن'));
   if(box){
     const dates=Array.isArray(att.dates)?att.dates.slice().reverse():[];
     box.innerHTML=dates.length?dates.slice(0,14).map((d,i)=>`<div class="row-item"><div class="main"><div class="t">${i===0&&d===today?'اليوم':'يوم حضور'}</div><div class="d">${escapeHtml(d)}</div></div><span class="pill gold">+${ATTENDANCE_POINTS} نقاط</span></div>`).join(''):'<div class="empty">لا يوجد سجل حضور بعد</div>';
@@ -3889,7 +3909,7 @@ async function markAttendance(){
   const today = dateKey();
   if(att.lastDate === today) return;
   const yesterday = dateKey(Date.now() - 86400000);
-  att.streak = (att.lastDate === yesterday) ? (att.streak || 0) + 1 : 1;
+  att.streak = (att.lastDate === yesterday || (isLeaveRuleEnabledForUser(user,'streak') && missedDaysCoveredByProtectedLeave(user,att.lastDate,today))) ? (att.streak || 0) + 1 : 1;
   att.lastDate = today;
   if(!att.dates) att.dates = [];
   att.dates.push(today);
@@ -5231,7 +5251,7 @@ function buildLeaderQuestions(source,count,type){
     else { const answer=words[Math.min(2,words.length-1)]||words[0]; const masked=text.replace(answer,'_____'); const distractors=[words[0]||'لا ينطبق',words[1]||'معلومة أخرى',words[3]||'غير ذلك'].filter(x=>x!==answer); out.push({q:'اختر الإجابة المناسبة: '+masked,type:'multiple',options:[answer,...distractors].slice(0,4),answer}); }
   } return out;
 }
-async function publishLeaderExam(){
+async function publishLeaderExamLegacy(){
   const user=me(); if(!isLeader(user))return; const title=document.getElementById('leaderExamTitle').value.trim()||'اختبار القائد'; const count=Math.max(1,Math.min(20,parseInt(document.getElementById('leaderExamCount').value,10)||5)); const type=document.getElementById('leaderExamType').value; const source=document.getElementById('leaderExamSource').value.trim(); if(!source){toast('الصق نص الدرس أولًا');return;} const questions=buildLeaderQuestions(source,count,type); if(!questions.length){toast('النص قصير جدًا');return;} if(!Array.isArray(state.aiExams))state.aiExams=[]; state.aiExams.unshift({id:uid(),title,source,questions,published:true,authorId:user.id,authorName:user.name,date:nowStr(),ts:Date.now()}); await saveShared('aiExams'); renderPublishedExams(); toast('تم نشر الاختبار للطلاب'); await pushNotification('all','📝 نشر القائد اختبارًا جديدًا: '+title,user.name,user.id);
 }
 
@@ -5259,13 +5279,22 @@ async function deleteUserAccount(userId){
 /* ============================= الاقتراحات والإجازات والورد ============================= */
 function leaveRulesForMode(mode, custom){
   const base={attendance:false,penalties:false,streak:false,tasks:false,meetings:false,reminders:false,absence:false};
-  if(mode==='full'||mode==='emergency') return {attendance:true,penalties:true,streak:true,tasks:true,meetings:true,reminders:true,absence:true};
-  if(mode==='light') return {attendance:true,penalties:true,streak:true,tasks:false,meetings:false,reminders:false,absence:true};
-  if(mode==='meetings') return {attendance:false,penalties:true,streak:false,tasks:false,meetings:true,reminders:true,absence:false};
+  if(mode==='full'||mode==='emergency') return {attendance:true,penalties:true,streak:custom&&typeof custom.streak==='boolean'?custom.streak:true,tasks:true,meetings:true,reminders:true,absence:true};
+  if(mode==='light') return {attendance:true,penalties:true,streak:custom&&typeof custom.streak==='boolean'?custom.streak:true,tasks:false,meetings:false,reminders:false,absence:true};
+  if(mode==='meetings') return {attendance:false,penalties:true,streak:custom&&typeof custom.streak==='boolean'?custom.streak:false,tasks:false,meetings:true,reminders:true,absence:false};
   return Object.assign(base,custom||{});
 }
-function leaveStartDate(v){ const d=new Date(v&&v.start); return Number.isNaN(d.getTime())?null:d; }
-function leaveEndDate(v){ if(!v||!v.end)return null; const d=new Date(v.end); if(Number.isNaN(d.getTime()))return null; if(/^\d{4}-\d{2}-\d{2}$/.test(String(v.end)))d.setHours(23,59,59,999); return d; }
+function leaveDateIsValid(value){
+  if(!value)return false;
+  const d=new Date(value);if(Number.isNaN(d.getTime()))return false;
+  const m=/^(\d{4})-(\d{2})-(\d{2})(?:T|$)/.exec(String(value));
+  if(!m)return true;
+  const y=Number(m[1]),month=Number(m[2]),day=Number(m[3]);
+  if(/^\d{4}-\d{2}-\d{2}$/.test(String(value)))return d.getUTCFullYear()===y&&d.getUTCMonth()+1===month&&d.getUTCDate()===day;
+  return d.getFullYear()===y&&d.getMonth()+1===month&&d.getDate()===day;
+}
+function leaveStartDate(v){ if(!v||!leaveDateIsValid(v.start))return null;const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v.start)),d=m?new Date(Number(m[1]),Number(m[2])-1,Number(m[3])):new Date(v.start);return Number.isNaN(d.getTime())?null:d; }
+function leaveEndDate(v){ if(!v||!leaveDateIsValid(v.end))return null;const m=/^(\d{4})-(\d{2})-(\d{2})$/.exec(String(v.end)),d=m?new Date(Number(m[1]),Number(m[2])-1,Number(m[3]),23,59,59,999):new Date(v.end);return Number.isNaN(d.getTime())?null:d; }
 function leaveIsActive(v,now){ const a=leaveStartDate(v),b=leaveEndDate(v),n=now||new Date(); return !!(v&&a&&b&&a<=n&&n<=b&&v.status!=='cancelled'&&v.status!=='rejected'); }
 function leaveIsScheduled(v){ const a=leaveStartDate(v),b=leaveEndDate(v); return !!(v&&a&&b&&a>new Date()&&v.status!=='cancelled'&&v.status!=='rejected'); }
 function activeIndividualLeave(user){
@@ -5275,11 +5304,53 @@ function activeIndividualLeave(user){
 function activeLeaveForUser(user){ const global=leaveIsActive(state.vacations)?state.vacations:null; return global||activeIndividualLeave(user)||null; }
 function currentLeaveForUser(){ return activeLeaveForUser(me()); }
 function isVacationActive(){ return !!activeLeaveForUser(me()); }
-function isLeaveRuleEnabled(rule){ const v=currentLeaveForUser(); return !!(v&&((v.rules&&v.rules[rule]) || (!v.rules&&leaveRulesForMode(v.mode||'full')[rule]))); }
+function leaveRulesForRecord(v){ return v&&v.rules&&typeof v.rules==='object'?v.rules:leaveRulesForMode(v&&v.mode||'full'); }
+function isLeaveRuleEnabledForUser(user,rule){
+  if(!user)return false;
+  const candidates=[];
+  if(leaveIsActive(state.vacations))candidates.push(state.vacations);
+  if(Array.isArray(state.leaveRequests))candidates.push(...state.leaveRequests.filter(r=>r.status==='approved'&&r.userId===user.id&&leaveIsActive(r)));
+  return candidates.some(v=>!!leaveRulesForRecord(v)[rule]);
+}
+function isLeaveRuleEnabled(rule){ return isLeaveRuleEnabledForUser(me(),rule); }
+function missedDaysCoveredByProtectedLeave(user,lastDate,today){
+  if(!user||!lastDate||!today)return false;
+  const from=new Date(String(lastDate)+'T00:00:00'),to=new Date(String(today)+'T00:00:00');
+  if(Number.isNaN(from.getTime())||Number.isNaN(to.getTime())||to<=from)return false;
+  const first=new Date(from);first.setDate(first.getDate()+1);
+  const gapDays=Math.round((to-first)/86400000);
+  if(gapDays<=0)return true;
+  if(gapDays>400)return false;
+  const records=[];
+  if(state.vacations)records.push(state.vacations);
+  if(Array.isArray(state.leaveRequests))records.push(...state.leaveRequests.filter(r=>r.userId===user.id&&r.status==='approved'));
+  for(let day=new Date(first);day<to;day.setDate(day.getDate()+1)){
+    const covered=records.some(v=>{
+      if(!v||v.status==='cancelled'||v.status==='rejected'||!leaveRulesForRecord(v).streak)return false;
+      if(v.scope!=='all'&&v.userId!==user.id)return false;
+      const start=leaveStartDate(v),end=leaveEndDate(v);
+      if(!start||!end)return false;
+      const dayEnd=new Date(day);dayEnd.setHours(23,59,59,999);
+      return start<=dayEnd&&end>=day;
+    });
+    if(!covered)return false;
+  }
+  return true;
+}
 function leaveLabel(v){ return ({full:'إجازة كاملة',light:'إجازة خفيفة',meetings:'إجازة اجتماعات',custom:'إجازة مخصصة',emergency:'وضع طوارئ'})[v&&v.mode]||'إجازة'; }
 function leaveDateText(x){ if(!x)return '—'; return String(x).replace('T',' '); }
 function formatLeaveRemaining(v){ const end=leaveEndDate(v); if(!end)return ''; const ms=Math.max(0,end-new Date()),mins=Math.ceil(ms/60000),days=Math.floor(mins/1440),hours=Math.floor((mins%1440)/60); return days>0?`متبقي ${days} يوم و${hours} ساعة`:`متبقي ${hours} ساعة و${mins%60} دقيقة`; }
-function leavePolicyChecks(v){ const out=[]; if(!v||!v.start||!v.end)out.push('بيانات التاريخ غير مكتملة'); if(v&&leaveEndDate(v)<=leaveStartDate(v))out.push('النهاية يجب أن تكون بعد البداية'); if(v&&leaveStartDate(v)<new Date()&&v.scope==='all')out.push('لا يمكن إنشاء إجازة جماعية بأثر رجعي'); return out; }
+function leavePolicyChecks(v){ const out=[];const start=leaveStartDate(v),end=leaveEndDate(v);if(!v||!v.start||!v.end||!start||!end)out.push('بيانات التاريخ غير مكتملة أو غير صالحة');else if(end<=start)out.push('النهاية يجب أن تكون بعد البداية');if(v&&start&&start<new Date()&&v.scope==='all')out.push('لا يمكن إنشاء إجازة جماعية بأثر رجعي');return out; }
+function personalLeaveRuleMarkup(){
+  const rules=[['attendance','تسجيل الحضور'],['penalties','الخصومات'],['tasks','المهام'],['meetings','الاجتماعات'],['reminders','التنبيهات'],['absence','احتساب الغياب']];
+  return `<div class="d" style="margin-bottom:8px;">اختر ما يتوقف ضمن طلبك:</div><div class="grid grid-2">${rules.map(([k,l])=>`<label class="remember-label"><input type="checkbox" data-personal-leave-rule="${k}" ${k==='streak'?'checked':''}><span>${l}</span></label>`).join('')}</div>`;
+}
+function togglePersonalLeaveRules(){ const mode=document.getElementById('leaveRequestMode')?.value||'light',box=document.getElementById('personalLeaveRulesBox');if(box)box.innerHTML=mode==='custom'?personalLeaveRuleMarkup():''; }
+function collectPersonalLeaveRules(mode,protectStreak){
+  const custom={streak:!!protectStreak};
+  if(mode==='custom')document.querySelectorAll('[data-personal-leave-rule]').forEach(x=>custom[x.dataset.personalLeaveRule]=x.checked);
+  return leaveRulesForMode(mode,custom);
+}
 function vacationRuleMarkup(mode,custom){ const r=leaveRulesForMode(mode,custom); return `<div class="d" style="margin-bottom:8px;">سيتم إيقاف:</div><div class="grid grid-2">${[['attendance','تسجيل الحضور'],['penalties','الخصومات'],['streak','حماية السلسلة'],['tasks','المهام الإلزامية'],['meetings','الاجتماعات'],['reminders','التنبيهات'],['absence','احتساب الغياب']].map(([k,l])=>`<label class="remember-label"><input type="checkbox" data-leave-rule="${k}" ${r[k]?'checked':''} ${mode!=='custom'?'disabled':''}><span>${l}</span></label>`).join('')}</div>`; }
 function toggleVacationRules(){ const mode=document.getElementById('vacationMode')?.value||'full',box=document.getElementById('vacationRulesBox'); if(box)box.innerHTML=vacationRuleMarkup(mode); }
 function collectVacationRules(){ const mode=document.getElementById('vacationMode')?.value||'full',custom={}; document.querySelectorAll('[data-leave-rule]').forEach(x=>custom[x.dataset.leaveRule]=x.checked); return leaveRulesForMode(mode,custom); }
@@ -5334,11 +5405,45 @@ function renderVacationsPage(){
   if(exList)exList.innerHTML=arr.length?arr.map(x=>`<div class="excuse-card"><div class="eyebrow">${escapeHtml(x.authorName)} • ${escapeHtml(x.type)} • ${escapeHtml(x.date)}</div><div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(x.text)}</div><div class="d">الحالة: ${escapeHtml(x.status||'قيد المراجعة')} ${x.attachmentUrl?`• <a href="${escapeHtml(x.attachmentUrl)}" target="_blank" rel="noopener">عرض المرفق</a>`:''}</div>${leader&&x.status==='pending'?`<div class="proposal-actions"><button class="btn sm gold" onclick="reviewExcuse('${x.id}','approved')">اعتماد</button><button class="btn sm" onclick="reviewExcuse('${x.id}','rejected')">رفض</button></div>`:''}</div>`).join(''):'<div class="empty">لا توجد أعذار معروضة</div>';
   renderLeaveHistory();
 }
-function leaveRequestHasOverlap(req){ return (state.leaveRequests||[]).some(x=>x.status==='approved'&&x.userId===req.userId&&leaveStartDate(x)<leaveEndDate(req)&&leaveEndDate(x)>leaveStartDate(req)); }
-async function analyzeLeavePayload(req){ try{const r=await fetch('/.netlify/functions/generate-exam',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'leaveAnalyze',source:JSON.stringify({type:req.type,mode:req.mode,start:req.start,end:req.end,reason:req.reason,protectStreak:req.protectStreak,existingRequests:(state.leaveRequests||[]).filter(x=>x.userId===req.userId&&x.status==='approved').map(x=>({start:x.start,end:x.end,status:x.status}))},null,2)})}),d=await r.json();return r.ok?d.result:null;}catch(e){console.warn('leave AI unavailable',e);return null;}}
+function leaveRequestHasOverlap(req){
+  const start=leaveStartDate(req),end=leaveEndDate(req);if(!start||!end)return true;
+  const overlaps=x=>{const a=leaveStartDate(x),b=leaveEndDate(x);return !!(a&&b&&a<end&&b>start);};
+  if(state.vacations&&state.vacations.id!==req.id&&state.vacations.status!=='cancelled'&&state.vacations.status!=='rejected'&&overlaps(state.vacations))return true;
+  return (state.leaveRequests||[]).some(x=>x.id!==req.id&&x.userId===req.userId&&['pending','approved'].includes(x.status)&&overlaps(x));
+}
+async function analyzeLeavePayload(req){
+  if(req.type==='مرضية')return {recommendation:'review',risk:'medium',summary:'تم إخفاء التفاصيل الطبية عن التحليل الآلي. يلزم أن يراجع القائد الطلب ويتواصل عبر قناة مناسبة عند الحاجة.',missing:[],conflicts:[],policyChecks:['لم تُرسل تفاصيل طبية إلى الذكاء الاصطناعي.'],leaderMessage:'يرجى مراجعة الطلب دون طلب معلومات تشخيصية داخل النظام.'};
+  try{const r=await fetch('/.netlify/functions/generate-exam',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'leaveAnalyze',source:JSON.stringify({type:req.type,mode:req.mode,start:req.start,end:req.end,reason:req.reason,protectStreak:req.protectStreak,existingRequests:(state.leaveRequests||[]).filter(x=>x.userId===req.userId&&x.status==='approved').map(x=>({start:x.start,end:x.end,status:x.status}))},null,2)})}),d=await r.json();return r.ok?d.result:null;}catch(e){console.warn('leave AI unavailable',e);return null;}
+}
 async function analyzeLeaveRequest(id){ if(!isLeader(me()))return; const x=(state.leaveRequests||[]).find(r=>r.id===id);if(!x)return; toast('جارٍ تحليل الطلب ذكيًا...'); x.aiReview=await analyzeLeavePayload(x); await saveShared('leaveRequests'); renderVacationsPage(); }
-async function submitLeaveRequest(){ const user=me(),start=document.getElementById('leaveRequestStart')?.value,end=document.getElementById('leaveRequestEnd')?.value,reason=document.getElementById('leaveRequestReason')?.value.trim(),type=document.getElementById('leaveRequestType')?.value||'عادية',mode=document.getElementById('leaveRequestMode')?.value||'light',file=document.getElementById('leaveRequestFile')?.files?.[0],protect=!!document.getElementById('leaveProtectStreak')?.checked; if(!user||!start||!end||!reason){toast('أكمل بيانات طلب الإجازة');return;} const req={id:uid(),scope:'individual',userId:user.id,authorName:user.name,start,end,type,mode,reason:reason.slice(0,1000),protectStreak:protect,rules:leaveRulesForMode(mode,{streak:protect}),status:'pending',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; if(leaveStartDate(req)>=leaveEndDate(req)){toast('النهاية يجب أن تكون بعد البداية');return;} if(leaveEndDate(req)<new Date()){toast('لا يمكن طلب إجازة منتهية');return;} if(leaveRequestHasOverlap(req)){toast('يوجد تداخل مع إجازة معتمدة');return;} if(file){if(file.size>2*1024*1024){toast('حجم المرفق يجب ألا يتجاوز 2MB');return;}try{const ref=_storage.ref('leave-requests/'+user.id+'/'+uid()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_'));const snap=await ref.put(file);req.attachmentUrl=await snap.ref.getDownloadURL();req.attachmentType=file.type;}catch(e){toast('تعذر رفع المرفق');return;}} req.aiReview=await analyzeLeavePayload(req); await transactionalSharedArray('leaveRequests',list=>{list.push(req);}); state.leaveRequests.push(req); await transactionalSharedArray('leaveHistory',list=>{list.unshift(Object.assign({},req,{title:'طلب إجازة فردية',status:'pending'}));}); state.leaveHistory.unshift(Object.assign({},req,{title:'طلب إجازة فردية',status:'pending'})); ['leaveRequestStart','leaveRequestEnd','leaveRequestReason','leaveRequestFile'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); renderVacationsPage();toast('تم إرسال الطلب وسيُراجع من القائد'); }
-async function decideLeaveRequest(id,status){ if(!isLeader(me())||!['approved','rejected'].includes(status))return; const req=(state.leaveRequests||[]).find(x=>x.id===id);if(!req)return; req.status=status;req.approvedBy=me().name;req.approvedAt=new Date().toISOString();req.updatedAt=req.approvedAt; await saveShared('leaveRequests'); await transactionalSharedArray('leaveHistory',list=>{list.unshift(Object.assign({},req,{title:'قرار طلب إجازة'}));}); state.leaveHistory.unshift(Object.assign({},req,{title:'قرار طلب إجازة'})); renderVacationsPage();toast(status==='approved'?'تم اعتماد الإجازة':'تم رفض الطلب'); }
+async function submitLeaveRequest(){
+  const user=me(),start=document.getElementById('leaveRequestStart')?.value,end=document.getElementById('leaveRequestEnd')?.value,reasonInput=document.getElementById('leaveRequestReason')?.value.trim(),type=document.getElementById('leaveRequestType')?.value||'عادية',mode=document.getElementById('leaveRequestMode')?.value||'light',file=document.getElementById('leaveRequestFile')?.files?.[0],protect=!!document.getElementById('leaveProtectStreak')?.checked;
+  if(!user||!start||!end||!reasonInput){toast('أكمل بيانات طلب الإجازة');return;}
+  if(type==='مرضية'&&file){toast('لا ترفع ملفًا طبيًا هنا؛ استخدم قناة خاصة آمنة خارج التطبيق');return;}
+  const reason=type==='مرضية'?'طلب إجازة مرضية — التفاصيل الطبية خارج التطبيق.':reasonInput.slice(0,1000);
+  const req={id:uid(),scope:'individual',userId:user.id,authorName:user.name,start,end,type,mode,reason,protectStreak:protect,rules:collectPersonalLeaveRules(mode,protect),status:'pending',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()};
+  if(leavePolicyChecks(req).length||leaveEndDate(req)<new Date()){toast('تحقق من تاريخ بداية ونهاية الطلب');return;}
+  if(leaveRequestHasOverlap(req)){toast('يوجد تداخل مع طلب أو إجازة قائمة');return;}
+  if(file){if(file.size>2*1024*1024){toast('حجم المرفق يجب ألا يتجاوز 2MB');return;}try{const ref=_storage.ref('leave-requests/'+user.id+'/'+uid()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_'));const snap=await ref.put(file);req.attachmentUrl=await snap.ref.getDownloadURL();req.attachmentType=file.type;}catch(e){toast('تعذر رفع المرفق');return;}}
+  req.aiReview=await analyzeLeavePayload(req);
+  await transactionalSharedArray('leaveRequests',list=>{list.push(req);});state.leaveRequests.push(req);
+  await transactionalSharedArray('leaveHistory',list=>{list.unshift(Object.assign({},req,{title:'طلب إجازة فردية',status:'pending'}));});state.leaveHistory.unshift(Object.assign({},req,{title:'طلب إجازة فردية',status:'pending'}));
+  ['leaveRequestStart','leaveRequestEnd','leaveRequestReason','leaveRequestFile'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';});renderVacationsPage();toast('تم إرسال الطلب وسيُراجع من القائد');
+}
+async function decideLeaveRequest(id,status){
+  if(!isLeader(me())||!['approved','rejected'].includes(status))return;
+  const req=(state.leaveRequests||[]).find(x=>x.id===id);
+  if(!req||req.status!=='pending')return;
+  if(status==='approved'){
+    if(leavePolicyChecks(req).length||leaveEndDate(req)<new Date()){toast('لا يمكن اعتماد الطلب: راجع صلاحية التواريخ');return;}
+    if(leaveRequestHasOverlap(req)){toast('لا يمكن الاعتماد بسبب تداخل مع طلب أو إجازة أخرى');return;}
+  }
+  req.status=status;req.approvedBy=me().name;req.approvedAt=new Date().toISOString();req.updatedAt=req.approvedAt;
+  await saveShared('leaveRequests');
+  await transactionalSharedArray('leaveHistory',list=>{list.unshift(Object.assign({},req,{title:'قرار طلب إجازة'}));});
+  state.leaveHistory.unshift(Object.assign({},req,{title:'قرار طلب إجازة'}));
+  renderVacationsPage();toast(status==='approved'?'تم اعتماد الإجازة':'تم رفض الطلب');
+}
 async function saveVacation(){ const user=me(),start=document.getElementById('vacationStart')?.value,end=document.getElementById('vacationEnd')?.value,mode=document.getElementById('vacationMode')?.value||'full',note=document.getElementById('vacationNote')?.value.trim(); if(!isLeader(user)||!start||!end||!note){toast('أكمل بيانات الإجازة الجماعية');return;} const v={id:uid(),scope:'all',mode,start,end,note:note.slice(0,500),by:user.name,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),status:'scheduled',rules:collectVacationRules()}; const errors=leavePolicyChecks(v);if(errors.length||leaveEndDate(v)<=leaveStartDate(v)||leaveEndDate(v)<new Date()){toast(errors[0]||'تحقق من التواريخ');return;} if(state.vacations&&leaveIsActive(state.vacations)){toast('هناك إجازة جماعية سارية حاليًا');return;} state.vacations=v;await saveShared('vacations');state.leaveHistory.unshift(Object.assign({},v,{title:'إجازة جماعية'}));await saveShared('leaveHistory');renderVacationsPage();renderHomeVacationBanner();toast('تم تفعيل الإجازة وإيقاف الالتزامات المحددة'); }
 async function clearVacation(){ if(!isLeader(me()))return; if(!state.vacations){toast('لا توجد إجازة جماعية');return;} const old=Object.assign({},state.vacations,{status:'cancelled',updatedAt:new Date().toISOString(),title:'إنهاء إجازة جماعية'});state.leaveHistory.unshift(old);state.vacations=null;await saveShared('vacations');await saveShared('leaveHistory');renderVacationsPage();renderHomeVacationBanner();toast('تم إنهاء الإجازة'); }
 async function sendWhatsAppTest(){
@@ -5387,7 +5492,7 @@ async function generateSmartExam(){
 }
 async function saveGeneratedAiExam(){
   const user=me(), exam=currentGeneratedAiExam;
-  if(!user||!exam||!Array.isArray(exam.questions)||!exam.questions.length){toast('ولّد اختبارًا أولًا');return;}
+  if(!user||!exam||!publishedExamIsComplete(exam)){toast('لا يمكن حفظ الاختبار: تحقق من وجود فقرة وإجابة وخيارات صحيحة لكل سؤال');return;}
   try{
     await transactionalSharedArray('aiExams', list => { list.unshift({id:uid(), title:exam.title||'اختبار ذكي', source:exam.source.slice(0,6000), questions:exam.questions.slice(0,20), createdBy:user.id, authorName:user.name, createdAt:new Date().toISOString(), date:nowStr()}); if(list.length>100) list.length=100; });
     const r=await window.storage.get('aiExams',true); state.aiExams=JSON.parse(r.value||'[]'); renderSavedAiExams(); toast('تم حفظ الاختبار في Firestore');
@@ -5708,14 +5813,30 @@ function renderPublishedExamLeaderResults(exam){
   const rows=state.users.filter(u=>publishedExamResult(u,exam.id));
   return `<div class="card" style="margin-top:12px;background:var(--night-2);"><div class="eyebrow">درجات الطلاب — للقائد فقط</div>${rows.length?rows.map(u=>{const r=publishedExamResult(u,exam.id);const c=(r.answers||[]).filter(a=>a.isCorrect).length;return `<div class="row-item"><div class="main"><div class="t">${escapeHtml(u.name)} — ${c}/${exam.questions.length}</div><div class="d">النقاط المعتمدة: ${r.points||0}</div>${(r.answers||[]).map(a=>`<div class="d" style="margin-top:5px;">${escapeHtml(a.question)}<br>إجابة: ${escapeHtml(a.given||'—')} — ${a.type==='essay'?'مقالي — بانتظار التقييم':(a.isCorrect?'صحيحة':'خطأ')} <select onchange="setPublishedAnswerPoints('${u.id}','${exam.id}','${a.qid}',this.value)">${[0,2,4,6,8,10].map(n=>`<option value="${n}" ${Number(a.awardedPoints||0)===n?'selected':''}>${n} نقاط</option>`).join('')}</select></div>`).join('')}</div></div>`;}).join(''):'<div class="empty">لم يسلّم أي طالب هذا الاختبار بعد</div>'}</div>`;
 }
-function renderPublishedExams(){
-  const form=document.getElementById('leaderPublishedExamForm'), note=document.getElementById('leaderPublishedExamNote'), box=document.getElementById('publishedExamsBox'), leader=isLeader(me());
-  if(form)form.style.display=leader?'block':'none'; if(note)note.textContent=leader?'أنشئ اختبارًا متوسطًا أو صعبًا من نص واضح، ثم راجع درجات الطلاب.':'حل الاختبارات المنشورة، وبعد التسليم ستظهر لك النتيجة والإجابات الصحيحة.'; if(!box)return;
-  const list=(state.aiExams||[]).filter(x=>x.published);
-  list.forEach(ex=>{(ex.questions||[]).forEach((q,i)=>{if(!q.id)q.id='legacy-'+ex.id+'-'+i;if(!q.q)q.q=q.question||'سؤال الاختبار';if(!q.options||!q.options.length)q.options=[q.answer||'الإجابة الصحيحة','إجابة غير صحيحة','غير مذكور في النص'];if(!q.instruction)q.instruction=q.statement||'اقرأ الفقرة ثم اختر الإجابة الصحيحة.';if(q.type==='truefalse'&&!q.passage&&q.statement&&q.statement!=='اختر الإجابة وفق النص.')q.passage=q.statement;if(q.type==='multiple'&&!q.passage&&q.answer)q.passage=q.answer;if(!q.type)q.type='multiple';});});
-  box.innerHTML=list.length?list.slice(0,20).map(x=>`<div class="proposal-card"><div class="eyebrow">${escapeHtml(x.authorName||'القائد')} • ${escapeHtml(x.date||'')}</div><h3 style="color:var(--gold-soft);margin:6px 0;">${escapeHtml(x.title||'اختبار منشور')}</h3><div class="d">${x.difficulty==='hard'?'صعب':'متوسط'} • ${x.questions.length} أسئلة</div><div class="proposal-actions"><button class="btn gold sm" onclick="openPublishedExam('${x.id}')">${publishedExamResult(me(),x.id)?'عرض النتيجة':'حل الاختبار'}</button>${leader?`<button class="btn ghost sm" onclick="deletePublishedExam('${x.id}')">حذف الاختبار</button>`:''}</div><div id="pub-exam-${x.id}"></div>${renderPublishedExamLeaderResults(x)}</div>`).join(''):'<div class="empty">لا توجد اختبارات منشورة بعد</div>';
+function publishedExamIsComplete(exam){
+  if(!exam||!Array.isArray(exam.questions)||!exam.questions.length)return false;
+  return exam.questions.every(q=>{
+    if(!q||!String(q.q||q.question||'').trim()||!String(q.passage||'').trim())return false;
+    const type=['multiple','truefalse','essay'].includes(q.type)?q.type:'multiple';
+    if(type==='essay')return !!String(q.answer||q.modelAnswer||'').trim();
+    const options=Array.isArray(q.options)?q.options.map(x=>String(x||'').trim()).filter(Boolean):[];
+    if(type==='truefalse')return options.length===2&&options.includes('صح')&&options.includes('خطأ')&&['صح','خطأ'].includes(q.answer);
+    return options.length===4&&new Set(options).size===4&&options.includes(q.answer);
+  });
 }
-function openPublishedExam(id){const exam=(state.aiExams||[]).find(x=>x.id===id);const box=document.getElementById('pub-exam-'+id);if(exam&&box){box.innerHTML=renderPublishedExamStudent(exam,me());box.scrollIntoView({behavior:'smooth',block:'center'});}}
+function renderPublishedExams(){
+  const form=document.getElementById('leaderPublishedExamForm'),note=document.getElementById('leaderPublishedExamNote'),box=document.getElementById('publishedExamsBox'),leader=isLeader(me());
+  if(form)form.style.display=leader?'block':'none';
+  if(note)note.textContent=leader?'أنشئ مسودة، راجع الفقرة والسؤال والإجابة، ثم اعتمد النشر.':'حل الاختبارات المكتملة، وبعد التسليم ستظهر نتيجتك والإجابات الصحيحة.';
+  if(!box)return;
+  const list=(state.aiExams||[]).filter(x=>x.published);
+  list.forEach(ex=>{(ex.questions||[]).forEach((q,i)=>{if(!q.id)q.id='legacy-'+ex.id+'-'+i;if(!q.q)q.q=q.question||'سؤال الاختبار';if(!q.instruction)q.instruction=q.statement||'اقرأ الفقرة ثم اختر الإجابة الصحيحة.';if(!q.type)q.type=(Array.isArray(q.options)&&q.options.includes('صح')&&q.options.includes('خطأ'))?'truefalse':'multiple';});});
+  box.innerHTML=list.length?list.slice(0,20).map(x=>{
+    const valid=publishedExamIsComplete(x),questions=Array.isArray(x.questions)?x.questions:[];
+    return `<div class="proposal-card"><div class="eyebrow">${escapeHtml(x.authorName||'القائد')} • ${escapeHtml(x.date||'')}</div><h3 style="color:var(--gold-soft);margin:6px 0;">${escapeHtml(x.title||'اختبار منشور')}</h3><div class="d">${x.difficulty==='hard'?'صعب':'متوسط'} • ${questions.length} أسئلة</div><div class="proposal-actions">${valid?`<button class="btn gold sm" onclick="openPublishedExam('${x.id}')">${publishedExamResult(me(),x.id)?'عرض النتيجة':'حل الاختبار'}</button>`:'<span class="pill">قديم وغير مكتمل — يحتاج مراجعة القائد</span>'}${leader?`<button class="btn ghost sm" onclick="deletePublishedExam('${x.id}')">حذف الاختبار</button>`:''}</div>${valid?`<div id="pub-exam-${x.id}"></div>${renderPublishedExamLeaderResults(x)}`:''}</div>`;
+  }).join(''):'<div class="empty">لا توجد اختبارات منشورة بعد</div>';
+}
+function openPublishedExam(id){const exam=(state.aiExams||[]).find(x=>x.id===id);const box=document.getElementById('pub-exam-'+id);if(exam&&!publishedExamIsComplete(exam)){toast('هذا الاختبار قديم وغير مكتمل؛ لن نعرض إجابة على أنها فقرة.');return;}if(exam&&box){box.innerHTML=renderPublishedExamStudent(exam,me());box.scrollIntoView({behavior:'smooth',block:'center'});}}
 async function submitPublishedExam(id){
   const exam=(state.aiExams||[]).find(x=>x.id===id), user=me(); if(!exam||!user)return;
   const answers=exam.questions.map((q,i)=>{
@@ -5730,29 +5851,39 @@ async function submitPublishedExam(id){
 }
 async function setPublishedAnswerPoints(userId,examId,qid,value){
   if(!isLeader(me()))return; const points=Math.max(0,Math.min(PUBLISHED_EXAM_POINTS,Number(value)||0));
-  await updateUserSafely(userId,u=>{const r=publishedExamResult(u,examId);if(!r)return;const a=(r.answers||[]).find(x=>x.qid===qid);if(a)a.awardedPoints=points;r.points=(r.answers||[]).reduce((s,x)=>s+Number(x.awardedPoints||0),0);});
-  const local=state.users.find(u=>u.id===userId);if(local){const r=publishedExamResult(local,examId);if(r){const a=(r.answers||[]).find(x=>x.qid===qid);if(a)a.awardedPoints=points;r.points=(r.answers||[]).reduce((s,x)=>s+Number(x.awardedPoints||0),0);}} renderPublishedExams();toast('تم تحديث نقاط الإجابة');
+  await updateUserSafely(userId,u=>{const r=publishedExamResult(u,examId);if(!r)return;const a=(r.answers||[]).find(x=>x.qid===qid);if(a){a.awardedPoints=points;if(a.type==='essay'){a.leaderReviewed=true;a.reviewedAt=nowStr();}}r.points=(r.answers||[]).reduce((s,x)=>s+Number(x.awardedPoints||0),0);});
+  const local=state.users.find(u=>u.id===userId);if(local){const r=publishedExamResult(local,examId);if(r){const a=(r.answers||[]).find(x=>x.qid===qid);if(a){a.awardedPoints=points;if(a.type==='essay'){a.leaderReviewed=true;a.reviewedAt=nowStr();}}r.points=(r.answers||[]).reduce((s,x)=>s+Number(x.awardedPoints||0),0);}} renderPublishedExams();toast('تم تحديث نقاط الإجابة');
 }
 async function redoPublishedExam(id){const user=me();if(!user)return;await updateUserSafely(user.id,u=>{if(u.publishedExamResults)delete u.publishedExamResults[id];});if(user.publishedExamResults)delete user.publishedExamResults[id];renderPublishedExams();}
 async function deletePublishedExam(id){if(!isLeader(me())||!confirm('حذف الاختبار المنشور؟'))return;state.aiExams=(state.aiExams||[]).filter(x=>x.id!==id);await saveShared('aiExams');renderPublishedExams();toast('تم حذف الاختبار');}
+let pendingPublishedExamDraft=null;
+function renderLeaderExamDraft(exam){
+  const box=document.getElementById('leaderExamPreview');if(!box)return;
+  box.innerHTML=`<div class="card"><div class="eyebrow">مراجعة إلزامية قبل النشر</div><h3>${escapeHtml(exam.title)}</h3>${exam.questions.map((q,i)=>`<div class="exam-question-card"><div class="exam-question-title">${i+1}. ${escapeHtml(q.q)}</div><div class="exam-instruction">${escapeHtml(q.instruction||'اقرأ الفقرة ثم أجب.')}</div><div class="exam-passage"><span class="exam-passage-label">الفقرة</span>${escapeHtml(q.passage)}</div>${q.type==='essay'?'<div class="pill">مقالي</div>':`<div class="exam-options">${q.options.map((o,j)=>`<div class="exam-option">${['أ','ب','ج','د'][j]||'•'} — ${escapeHtml(o)}</div>`).join('')}</div>`}<div class="exam-answer">الإجابة: ${escapeHtml(q.answer||q.modelAnswer||'')}</div></div>`).join('')}<div class="d">تحقق من الفقرة والسؤال والإجابة. لن يظهر الاختبار للطلاب حتى تضغط «اعتماد ونشر».</div><div class="proposal-actions"><button class="btn gold" onclick="confirmPublishLeaderExam()">اعتماد ونشر للطلاب</button><button class="btn ghost" onclick="cancelPublishLeaderExam()">إلغاء المسودة</button></div></div>`;
+}
+function cancelPublishLeaderExam(){pendingPublishedExamDraft=null;const box=document.getElementById('leaderExamPreview');if(box)box.innerHTML='';}
 async function publishLeaderExam(){
-  const user=me(); if(!isLeader(user))return;
+  const user=me();if(!isLeader(user))return;
   const title=document.getElementById('leaderExamTitle').value.trim()||'اختبار القائد';
   const count=Math.max(1,Math.min(20,parseInt(document.getElementById('leaderExamCount').value,10)||5));
-  const type=document.getElementById('leaderExamType').value;
-  const difficulty=document.getElementById('leaderExamDifficulty').value;
-  const source=document.getElementById('leaderExamSource').value.trim();
+  const type=document.getElementById('leaderExamType').value,difficulty=document.getElementById('leaderExamDifficulty').value,source=document.getElementById('leaderExamSource').value.trim();
   if(source.length<120){toast('أدخل نصًا تعليميًا أطول حتى يستطيع الذكاء فهمه');return;}
   try{
     const questions=await requestAiExam(source,count,type,difficulty);
-    if(questions.length<Math.min(2,count)){toast('لم يتم إنشاء عدد كافٍ من الأسئلة المترابطة؛ جرّب نصًا أوضح وأطول');return;}
-    state.aiExams=Array.isArray(state.aiExams)?state.aiExams:[];
-    state.aiExams.unshift({id:uid(),title,source,questions,published:true,difficulty,authorId:user.id,authorName:user.name,date:nowStr(),ts:Date.now(),version:3,generatedBy:'ai'});
-    await saveShared('aiExams'); renderPublishedExams(); toast('تم توليد اختبار ذكي مترابط ونشره');
-    await pushNotification('all','📝 نشر القائد اختبارًا ذكيًا جديدًا: '+title,user.name,user.id);
-  }catch(e){console.error(e);toast('تعذر التوليد الذكي: '+(e.message||'خطأ غير معروف'));}
+    const valid=questions.filter(q=>publishedExamIsComplete({questions:[q]}));
+    if(valid.length<Math.min(2,count)){toast('لم يتم إنشاء عدد كافٍ من الأسئلة المكتملة؛ جرّب نصًا أوضح وأطول');return;}
+    pendingPublishedExamDraft={id:uid(),title,source,questions:valid.slice(0,count),published:true,difficulty,authorId:user.id,authorName:user.name,date:nowStr(),ts:Date.now(),version:3,generatedBy:'ai'};
+    renderLeaderExamDraft(pendingPublishedExamDraft);
+  }catch(e){console.error(e);toast('تعذر توليد مسودة الاختبار: '+(e.message||'خطأ غير معروف'));}
 }
-
+async function confirmPublishLeaderExam(){
+  if(!isLeader(me())||!pendingPublishedExamDraft)return;
+  const draft=pendingPublishedExamDraft;
+  if(!publishedExamIsComplete(draft)){toast('المسودة غير مكتملة؛ ألغها وأعد التوليد');return;}
+  state.aiExams=Array.isArray(state.aiExams)?state.aiExams:[];state.aiExams.unshift(draft);
+  try{await saveShared('aiExams');pendingPublishedExamDraft=null;const box=document.getElementById('leaderExamPreview');if(box)box.innerHTML='';renderPublishedExams();toast('تم اعتماد الاختبار ونشره للطلاب');await pushNotification('all','📝 نشر القائد اختبارًا ذكيًا جديدًا: '+draft.title,me().name,me().id);}
+  catch(e){state.aiExams=state.aiExams.filter(x=>x.id!==draft.id);console.error('publish exam failed');toast('تعذر حفظ الاختبار؛ بقيت المسودة في المراجعة');pendingPublishedExamDraft=draft;renderLeaderExamDraft(draft);}
+}
 
 /* Partial points for the original manual question bank. */
 function renderExamReviewList(){
