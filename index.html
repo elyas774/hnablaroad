@@ -10,8 +10,6 @@
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#c6a04a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="طريق الحنابلة"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>طريق الحنابلة</title>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-storage-compat.js"></script>
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Amiri+Quran&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
@@ -909,7 +907,7 @@ label{color:#c4d4da;}
       </div>
       <div class="card" style="margin-top:16px;"><div class="eyebrow" style="margin-bottom:10px;">طلبات الإجازة</div><div id="leaveRequestsList"></div></div>
       <div class="card" style="margin-top:16px;"><div class="eyebrow" style="margin-bottom:10px;">سجل الإجازات</div><div id="leaveHistoryList"></div></div>
-      <div class="card" style="margin-top:16px;"><div class="eyebrow" style="margin-bottom:10px;">الأعذار والمرفقات</div><div class="field"><label>نوع العذر</label><select id="excuseType"><option value="تأخر">تأخر</option><option value="غياب">غياب</option><option value="أخرى">أخرى</option></select></div><div class="field"><label>التفاصيل</label><textarea id="excuseText" rows="3" maxlength="1000" placeholder="اكتب تفاصيل العذر..."></textarea></div><div class="field"><label>مرفق اختياري</label><input id="excuseFile" type="file" accept="image/*,.pdf"></div><button class="btn ghost block" onclick="submitExcuse()">إرسال عذر مستقل</button><div id="excusesList" style="margin-top:12px;"></div></div>
+      <div class="card" style="margin-top:16px;"><div class="eyebrow" style="margin-bottom:10px;">الأعذار والمرفقات</div><div class="field"><label>نوع العذر</label><select id="excuseType"><option value="تأخر">تأخر</option><option value="غياب">غياب</option><option value="أخرى">أخرى</option></select></div><div class="field"><label>التفاصيل</label><textarea id="excuseText" rows="3" maxlength="1000" placeholder="اكتب تفاصيل العذر..."></textarea></div><div class="field"><label>مرفق اختياري</label><input id="excuseFile" type="file" accept="image/jpeg,image/png,image/webp,application/pdf"></div><button class="btn ghost block" onclick="submitExcuse()">إرسال عذر مستقل</button><div id="excusesList" style="margin-top:12px;"></div></div>
     </div>
 
     <!-- CHALLENGES & GAMES -->
@@ -925,9 +923,9 @@ label{color:#c4d4da;}
 
       <div class="card" style="margin-top:16px;">
         <div class="eyebrow" style="margin-bottom:8px;">يوم الآيات 📖</div>
-        <div class="d" style="margin-bottom:10px;">احفظ آية ودوّنها. يمكنك إرسال أكثر من مشاركة في اليوم، وكل مشاركة تُسجّل في لوحة القائد وتمنحك تذكرة.</div>
+        <div class="d" style="margin-bottom:10px;">احفظ آية ودوّنها. يمكنك إرسال أكثر من مشاركة في اليوم، وتُسجّل جميعها في لوحة القائد؛ تُمنح تذكرة واحدة كحد أقصى في اليوم.</div>
         <div class="field"><label>الآية التي حفظتها اليوم</label><textarea id="ayatChallengeText" rows="3" maxlength="500" style="background:var(--night-2);border:1px solid var(--line);color:var(--text);padding:10px 12px;border-radius:9px;font-size:14px;width:100%;resize:vertical;" placeholder="اكتب الآية أو جزءًا منها..."></textarea></div>
-        <button class="btn gold" onclick="submitAyatChallenge()">إرسال المشاركة + تذكرة</button>
+        <button class="btn gold" onclick="submitAyatChallenge()">إرسال المشاركة</button>
         <div id="ayatChallengeStatus" class="d" style="margin-top:10px;"></div>
         <div id="ayatChallengeLeaderBox" style="display:none;margin-top:14px;"></div>
       </div>
@@ -1267,61 +1265,32 @@ label{color:#c4d4da;}
 
 <div class="toast" id="toast"></div>
 
+<script src="/supabase-auth-client.js"></script>
+<script src="/supabase-data-adapter.js"></script>
 <script>
-/* ===== Firebase setup: replaces the old window.storage system ===== */
+/* Firebase is retained for FCM push notifications only. Application data and files use authenticated Supabase gateways. */
 const firebaseConfig = {
   apiKey: "AIzaSyA0D-L7UaLtfgfY1KVEsjYU_PJjt7IZI_w",
   authDomain: "hnabla-5e19d.firebaseapp.com",
   projectId: "hnabla-5e19d",
-  storageBucket: "hnabla-5e19d.firebasestorage.app",
   messagingSenderId: "1056306730013",
-  appId: "1:1056306730013:web:8b0389d83537e8e370e2f4",
-  measurementId: "G-0NWMK53MF1"
+  appId: "1:1056306730013:web:8b0389d83537e8e370e2f4"
 };
-/* حماية: بعض الشبكات/المتصفحات (أو حاجبات الإعلانات) قد تمنع تحميل مكتبة Firebase من
-   gstatic.com، وإذا حدث ذلك فإن استدعاء firebase.initializeApp مباشرة يرمي خطأ غير مُعالَج
-   يوقف تنفيذ بقية هذا السكربت بالكامل من تلك النقطة فصاعدًا — بما فيها كل متغيرات "let" اللاحقة
-   (كـ authMode) التي تبقى غير مهيّأة، فيظهر لاحقًا خطأ مضلّل مثل "Cannot access 'authMode'
-   before initialization" عند الضغط على أي زر. لتفادي هذا نلتقط الخطأ هنا ونستخدم كائنًا بديلاً
-   آمنًا (لا يفعل شيئًا سوى الفشل بهدوء) بدلاً من _db/_storage الحقيقيين، مع تنبيه واضح للمستخدم،
-   بحيث يكمل باقي التطبيق تهيئته بشكل طبيعي مهما حصل. */
-let _firebaseReady = true;
+let _fcmReady = true;
 try{
-  if(typeof firebase === 'undefined') throw new Error('Firebase SDK لم تُحمَّل');
+  if(typeof firebase === 'undefined') throw new Error('Firebase Messaging SDK not loaded');
   firebase.initializeApp(firebaseConfig);
 }catch(e){
-  _firebaseReady = false;
-  console.error('تعذّر تهيئة Firebase:', e);
+  _fcmReady = false;
+  console.error('FCM initialization failed:', e);
 }
-function createOfflineFirebaseStub(){
-  const handler = {
-    get(target, prop){
-      if(prop === 'onSnapshot') return (onNext, onError) => { if(typeof onError === 'function') onError(new Error('offline: Firebase غير متاحة')); return () => {}; };
-      if(prop === 'get') return () => Promise.reject(new Error('offline: Firebase غير متاحة'));
-      if(['set','add','update','delete'].includes(prop)) return () => Promise.reject(new Error('offline: Firebase غير متاحة'));
-      if(prop === 'batch') return () => ({ set(){}, update(){}, delete(){}, commit: () => Promise.reject(new Error('offline: Firebase غير متاحة')) });
-      if(prop === 'settings') return () => {};
-      if(prop === 'then') return undefined; // حتى لا يُعامَل الستَب كـ Promise عن طريق الخطأ
-      return (...args) => proxy;
-    }
-  };
-  const proxy = new Proxy(function(){}, handler);
-  return proxy;
-}
-const _db = _firebaseReady ? firebase.firestore() : createOfflineFirebaseStub();
-/* بعض متصفحات الجوال المدمجة (متصفحات تطبيقات واتساب/تيليجرام/إنستغرام الداخلية) تُعطّل اتصال
-   الاستماع اللحظي (WebSocket/streaming) الذي تعتمده Firestore افتراضيًا، فتتجمد التحديثات الحيّة
-   (كالدردشة) حتى يحدث أي تفاعل يوقظ الاتصال من جديد. تفعيل الكشف التلقائي لطريقة Long-Polling
-   يجعل Firestore يتحول تلقائيًا لطريقة اتصال متوافقة مع كل المتصفحات، فتبقى التحديثات لحظية دائمًا. */
-try{
-  if(_firebaseReady) _db.settings({ experimentalAutoDetectLongPolling: true, merge: true });
-}catch(e){ /* الإعداد غير متاح في بعض إصدارات SDK القديمة، لا مشكلة في تجاهله */ }
-const _storage = _firebaseReady ? firebase.storage() : createOfflineFirebaseStub();
-if(!_firebaseReady){
+const _db = window.hanabilaSupabaseDb;
+const _storage = window.hanabilaSupabaseStorage;
+if(!_fcmReady){
   document.addEventListener('DOMContentLoaded', () => {
     const banner = document.createElement('div');
     banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7a1f1f;color:#fff;padding:12px 16px;text-align:center;font-family:Tahoma,Arial;font-size:13.5px;line-height:1.7;';
-    banner.textContent = '⚠️ تعذّر تحميل مكتبة الاتصال بالخادم (Firebase). تحقق من اتصالك بالإنترنت، أو عطّل أي حاجب إعلانات (Ad Blocker)، ثم أعد تحميل الصفحة.';
+    banner.textContent = '⚠️ تعذّر تحميل إشعارات الجوال الفورية (FCM) فقط؛ تسجيل الدخول والبيانات تعمل عبر Supabase.';
     document.body.prepend(banner);
   });
 }
@@ -1374,6 +1343,7 @@ window.storage = {
     }
   }
 };
+window.storage = window.hanabilaSupabaseStorageApi;
 
 /* ============================= STATE ============================= */
 let state = {
@@ -1497,6 +1467,21 @@ function taskProofKey(userId, taskId, cycleKey){
 // سجلّ مؤقت (في الذاكرة فقط) يربط زرّ عرض الإثبات ببياناته، بدل تضمين الصورة/الفيديو كاملة
 // داخل كل زر HTML عند كل عملية عرض.
 let _taskProofRegistry = {};
+let taskReviewQueue = [];
+async function reloadUsersFromGateway(){
+  const record = await window.storage.get('users', true);
+  const parsed = JSON.parse(record.value);
+  if(!Array.isArray(parsed)) throw new Error('invalid_user_state');
+  state.users = parsed;
+}
+async function refreshTaskReviewQueue(){
+  if(!isLeader(me())) return;
+  try{
+    const result = await window.hanabilaSupabaseAuth.feature('student-tasks', { op: 'review_queue' });
+    taskReviewQueue = Array.isArray(result.items) ? result.items : [];
+    renderLeaderCompletions();
+  }catch(e){ console.error('task review queue load failed', e); }
+}
 function registerTaskProof(rec){
   const rid = uid();
   _taskProofRegistry[rid] = rec;
@@ -1505,12 +1490,12 @@ function registerTaskProof(rec){
 async function viewTaskProofById(rid){
   const rec = _taskProofRegistry[rid];
   if(!rec) return;
-  let data = rec.proofData || null;
-  if(!data && rec.proofKey){
+  let data = rec.proofData || rec.proofUrl || null;
+  if(!data && rec.submissionId){
     try{
-      const r = await window.storage.get(rec.proofKey, true);
-      data = r ? r.value : null;
-    }catch(e){ console.error('load proof failed', e); }
+      const result = await window.hanabilaSupabaseAuth.feature('student-tasks', { op: 'proof_url', submissionId: rec.submissionId });
+      data = result.proofUrl || null;
+    }catch(e){ console.error('load private proof failed', e); }
   }
   if(!data){ toast('تعذّر تحميل الإثبات'); return; }
   const modal = document.getElementById('taskProofModal');
@@ -1535,9 +1520,9 @@ function closeViolationsList(){
   const modal = document.getElementById('violationsModal');
   if(modal) modal.style.display = 'none';
 }
-function proofButtonHtml(proofType, proofKey, proofData){
-  if(!proofKey && !proofData) return '';
-  const rid = registerTaskProof({ proofType, proofKey: proofKey || null, proofData: proofData || null });
+function proofButtonHtml(proofType, proofKey, proofData, submissionId, proofUrl){
+  if(!proofKey && !proofData && !submissionId && !proofUrl) return '';
+  const rid = registerTaskProof({ proofType, proofKey: proofKey || null, proofData: proofData || null, submissionId: submissionId || null, proofUrl: proofUrl || null });
   return proofType === 'video'
     ? `<button type="button" class="btn sm ghost pill gold" onclick="viewTaskProofById('${rid}')">🎥 الفيديو</button>`
     : `<button type="button" class="btn sm ghost" style="padding:2px;width:38px;height:38px;overflow:hidden;" onclick="viewTaskProofById('${rid}')">🖼️</button>`;
@@ -1566,10 +1551,6 @@ async function loadState(){
     }catch(e){ /* not found yet, keep default */ }
   }
   seenUpdateSignalTs = state.appUpdateSignal ? state.appUpdateSignal.ts : null;
-  try{
-    const r = await window.storage.get('session', false);
-    if(r && r.value) session = JSON.parse(r.value);
-  }catch(e){ /* no session yet */ }
 }
 async function saveShared(key){
   try{
@@ -1599,8 +1580,7 @@ async function updateUserSafely(userId, mutatorFn){
   });
 }
 async function saveSession(){
-  try{ await window.storage.set('session', JSON.stringify(session), false); }
-  catch(e){ console.error('session save failed', e); }
+  // Supabase access/refresh tokens are maintained only by HanabilaAuthClient in sessionStorage.
 }
 /* تحديث آمن لكل مصفوفة المستخدمين دفعة واحدة (لعمليات تمسّ أكثر من مستخدم كتجدد الأسبوع، أو
    إضافة مستخدم جديد عند التسجيل): تقرأ أحدث نسخة من السيرفر أولاً ثم تطبّق mutatorFn عليها
@@ -1900,9 +1880,13 @@ async function applyManualLeaderOverrideOnce(){
 }
 
 /* ============================= TASKS AUTO-RENEWAL ============================= */
+function getRiyadhCalendarDateKey(date = new Date()){
+  const parts = Object.fromEntries(new Intl.DateTimeFormat('en-US',{timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(date).map(part=>[part.type,part.value]));
+  return `${parts.year}-${parts.month}-${parts.day}`;
+}
 function getTaskCycleKey(group, now = new Date()){
   if(group === 'daily'){
-    const d = new Date(now); d.setHours(0,0,0,0); return 'daily-' + d.toISOString().slice(0,10);
+    return 'daily-' + getRiyadhCalendarDateKey(now);
   }
   if(group === 'weekly') return 'weekly-' + getLastSaturdayRenewalTime(now).toISOString();
   const next = getNextMeetingDate();
@@ -1949,65 +1933,78 @@ async function checkMeetingReminder(){
 }
 
 /* ============================= AUTH ============================= */
+let forcePasswordResetMode = false;
 function openAuthForm(mode){
-  authMode = mode;
+  authMode = 'login';
   document.getElementById('authLanding').style.display = 'none';
   document.getElementById('authFormWrap').style.display = 'block';
-  document.getElementById('authErr').textContent = '';
+  document.getElementById('authErr').textContent = mode === 'register' ? 'إنشاء الحسابات الجديدة متوقف مؤقتًا حتى ربطها بخادم التحقق الآمن.' : '';
   document.getElementById('authName').value = '';
   const emailField=document.getElementById('authEmailField'), phoneField=document.getElementById('authPhoneField');
   if(document.getElementById('authEmail')) document.getElementById('authEmail').value = '';
   if(document.getElementById('authPhone')) document.getElementById('authPhone').value = '';
-  if(emailField) emailField.style.display = mode === 'register' ? 'block' : 'none';
-  if(phoneField) phoneField.style.display = mode === 'register' ? 'block' : 'none';
+  if(emailField) emailField.style.display = 'none';
+  if(phoneField) phoneField.style.display = 'none';
   document.getElementById('authUsername').value = '';
   document.getElementById('authPassword').value = '';
-  document.getElementById('authNameField').style.display = mode === 'register' ? 'block' : 'none';
-  document.getElementById('authFormTitle').textContent = mode === 'login' ? 'تسجيل الدخول' : 'حساب طالب جديد';
-  document.getElementById('authSubmitBtn').textContent = mode === 'login' ? 'دخول' : 'إنشاء الحساب';
+  document.getElementById('authNameField').style.display = 'none';
+  document.getElementById('authFormTitle').textContent = mode === 'register' ? 'التسجيل الجديد غير متاح مؤقتًا' : 'تسجيل الدخول الآمن';
+  document.getElementById('authSubmitBtn').textContent = 'دخول';
 }
 function closeAuthForm(){
   document.getElementById('authLanding').style.display = 'grid';
   document.getElementById('authFormWrap').style.display = 'none';
 }
 function openChangePwForm(){
-  document.getElementById('authLanding').style.display = 'none';
-  document.getElementById('authChangePwWrap').style.display = 'block';
-  document.getElementById('cpwUsername').value = '';
-  document.getElementById('cpwOld').value = '';
-  document.getElementById('cpwNew').value = '';
-  document.getElementById('cpwConfirm').value = '';
-  document.getElementById('cpwErr').textContent = '';
+  openAuthForm('login');
+  document.getElementById('authErr').textContent = 'تغيير كلمة المرور يتم بعد تسجيل الدخول والتحقق من كلمة المرور الحالية. إذا كان هذا دخولك الأول، استخدم كلمة المرور المؤقتة وسنطلب تغييرها مباشرة.';
 }
 function closeChangePwForm(){
+  if(forcePasswordResetMode) return;
   document.getElementById('authLanding').style.display = 'grid';
   document.getElementById('authChangePwWrap').style.display = 'none';
+}
+function showForcedPasswordReset(){
+  forcePasswordResetMode = true;
+  document.getElementById('authLanding').style.display = 'none';
+  document.getElementById('authFormWrap').style.display = 'none';
+  const wrap = document.getElementById('authChangePwWrap');
+  wrap.style.display = 'block';
+  ['cpwUsername','cpwOld'].forEach(id => {
+    const input = document.getElementById(id);
+    const field = input && (input.closest('.field') || input.parentElement);
+    if(field) field.style.display = 'none';
+  });
+  const title = wrap.querySelector('h2,h3');
+  if(title) title.textContent = 'تعيين كلمة مرور جديدة';
+  const submit = wrap.querySelector('[onclick="submitAuthChangePw()"]');
+  if(submit) submit.textContent = 'حفظ كلمة المرور الجديدة';
+  const close = wrap.querySelector('[onclick="closeChangePwForm()"]');
+  if(close) close.style.display = 'none';
+  document.getElementById('cpwNew').value = '';
+  document.getElementById('cpwConfirm').value = '';
+  document.getElementById('cpwErr').textContent = 'هذه كلمة مرور مؤقتة. أنشئ كلمة مرور جديدة لا تقل عن 12 حرفًا لإكمال الدخول.';
 }
 async function submitAuthChangePw(){
   const err = document.getElementById('cpwErr');
   err.textContent = '';
-  const username = document.getElementById('cpwUsername').value.trim();
-  const oldPass = document.getElementById('cpwOld').value;
   const newPass = document.getElementById('cpwNew').value;
   const confirmPass = document.getElementById('cpwConfirm').value;
-
-  if(!username || !oldPass || !newPass || !confirmPass){ err.textContent = 'الرجاء تعبئة جميع الحقول'; return; }
-  const user = state.users.find(u => u.username === username);
-  if(!user){ err.textContent = 'اسم الحساب غير موجود'; return; }
-  if(user.password !== oldPass){ err.textContent = 'كلمة المرور القديمة غير صحيحة'; return; }
+  if(!forcePasswordResetMode){ err.textContent = 'سجّل الدخول أولًا لتغيير كلمة المرور من إعدادات الحساب.'; return; }
+  if(!newPass || !confirmPass){ err.textContent = 'اكتب كلمة المرور الجديدة وأعد تأكيدها'; return; }
   if(newPass !== confirmPass){ err.textContent = 'كلمة المرور الجديدة غير متطابقة مع التأكيد'; return; }
-  if(newPass.length < 4){ err.textContent = 'كلمة المرور الجديدة قصيرة جداً'; return; }
-
-  user.password = newPass;
+  if(newPass.length < 12){ err.textContent = 'يجب ألا تقل كلمة المرور الجديدة عن 12 حرفًا'; return; }
   try{
-    await updateUserSafely(user.id, u => { u.password = newPass; });
+    await window.hanabilaSupabaseAuth.resetTemporaryPassword(newPass);
+    const restored = await window.hanabilaSupabaseAuth.restore();
+    if(!restored || restored.needsPasswordReset) throw new Error('password_reset_not_confirmed');
+    forcePasswordResetMode = false;
+    await startAuthenticatedSession(restored.user.id);
+    toast('تم تحديث كلمة المرور وتسجيل الدخول بأمان');
   }catch(e){
-    console.error('submitAuthChangePw save failed', e);
-    err.textContent = 'تعذّر الحفظ، تحقق من اتصالك بالإنترنت';
-    return;
+    console.error('temporary password reset failed', e);
+    err.textContent = e.code === 'password_must_be_12_to_128_chars' ? 'يجب أن تكون كلمة المرور بين 12 و128 حرفًا' : 'تعذّر تحديث كلمة المرور؛ تحقق من اتصالك ثم أعد المحاولة';
   }
-  closeChangePwForm();
-  toast('تم تغيير كلمة المرور بنجاح، يمكنك تسجيل الدخول الآن');
 }
 async function submitAuth(){
   const err = document.getElementById('authErr');
@@ -2015,64 +2012,43 @@ async function submitAuth(){
   const username = document.getElementById('authUsername').value.trim();
   const password = document.getElementById('authPassword').value;
   if(!username || !password){ err.textContent = 'الرجاء إدخال اسم المستخدم وكلمة المرور'; return; }
-
-  if(authMode === 'login'){
-    const user = state.users.find(u => u.username === username && u.password === password);
-    if(!user){ err.textContent = 'بيانات الدخول غير صحيحة'; return; }
-    session.userId = user.id;
-    await applySessionPersistence();
-    enterApp();
-  } else {
-    const name = document.getElementById('authName').value.trim();
-    const email = (document.getElementById('authEmail')?.value || '').trim();
-    const phone = (document.getElementById('authPhone')?.value || '').trim();
-    if(!name){ err.textContent = 'الرجاء إدخال الاسم'; return; }
-    if(email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)){ err.textContent = 'صيغة البريد الإلكتروني غير صحيحة'; return; }
-    if(phone && !/^[+0-9\s-]{8,20}$/.test(phone)){ err.textContent = 'صيغة رقم الجوال غير صحيحة'; return; }
-    if(state.users.some(u => u.username === username)){ err.textContent = 'اسم المستخدم مستخدم بالفعل'; return; }
-    const newUser = { id: uid(), name, username, password, email, phone, points: 0, totalPoints: 0, pointsHistory: [], weeklyCards: [], completedTasks: [], journey: {} };
-    try{
-      const usernameTaken = await updateAllUsersSafely(freshUsers => {
-        if(freshUsers.some(u => u.username === username)) return true;
-        freshUsers.push(newUser);
-        return false;
-      });
-      if(usernameTaken){ err.textContent = 'اسم المستخدم مستخدم بالفعل'; return; }
-    }catch(e){
-      console.error('submitAuth register save failed', e);
-      err.textContent = 'تعذّر إنشاء الحساب، تحقق من اتصالك بالإنترنت';
-      return;
-    }
-    state.users.push(newUser);
-    session.userId = newUser.id;
-    await applySessionPersistence();
-    enterApp();
-    toast('تم إنشاء الحساب بنجاح');
-    await logDiwan('انضمام', '🆕', 'انضمّ ' + name + ' إلى طريق الحنابلة');
+  if(authMode !== 'login'){ err.textContent = 'إنشاء الحسابات الجديدة غير متاح حتى اكتمال ربطها الآمن.'; return; }
+  try{
+    const result = await window.hanabilaSupabaseAuth.signIn(username, password);
+    if(result.needsPasswordReset){ showForcedPasswordReset(); return; }
+    await startAuthenticatedSession(result.user.id);
+  }catch(e){
+    console.warn('Supabase login failed', e);
+    err.textContent = e.code === 'server_not_configured' ? 'خدمة الدخول لم تُجهّز بعد على الخادم.' : 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير مفعّل بعد.';
   }
 }
-async function applySessionPersistence(){
-  const rememberBox = document.getElementById('authRemember');
-  const remember = rememberBox ? rememberBox.checked : true;
-  if(remember){
-    await saveSession();
-    const user = me();
-    if(user){
-      try{ await window.storage.set('rememberedLogin', JSON.stringify({ userId: user.id, name: user.name }), false); }catch(e){ /* ignore */ }
-    }
-  } else {
-    // لا يُحفظ الدخول: نمسح أي جلسة محفوظة سابقًا حتى لا يبقى مسجلاً بعد إغلاق الصفحة
-    try{ await window.storage.set('session', JSON.stringify({ userId: null }), false); }catch(e){ /* ignore */ }
+async function startAuthenticatedSession(userId){
+  session.userId = userId;
+  await loadState();
+  if(!state.users.some(u => u && u.id === userId)){
+    session.userId = null;
+    throw new Error('account_data_not_found');
   }
+  await refreshLeaveData();
+  attachChatListener();
+  attachNotificationsListener();
+  attachSharedLiveListener();
+  if(isLeader(me())) void refreshTaskReviewQueue();
+  enterApp();
+}
+async function applySessionPersistence(){
+  // Session lifetime is controlled by Supabase Auth and sessionStorage, not a remember-me flag.
 }
 function me(){ return state.users.find(u => u.id === session.userId); }
 async function logout(){
+  try{ await window.hanabilaSupabaseAuth.signOut(); }catch(e){ console.warn('Supabase sign-out failed', e); }
   session.userId = null;
-  await saveSession();
+  state.users = [];
   document.getElementById('app').style.display = 'none';
   document.getElementById('authScreen').style.display = 'flex';
+  forcePasswordResetMode = false;
   closeAuthForm();
-  checkRememberedLogin();
+  document.getElementById('authChangePwWrap').style.display = 'none';
 }
 
 /* ============================= APP SHELL ============================= */
@@ -2315,7 +2291,7 @@ function getCompletion(user, taskId, cycleKey){
 function taskActionHtml(task, user, cycleKey){
   const completion = getCompletion(user, task.id, cycleKey);
   if(completion){
-    const proofHtml = proofButtonHtml(completion.proofType, completion.proofKey, completion.proofData);
+    const proofHtml = proofButtonHtml(completion.proofType, completion.proofKey, completion.proofData, completion.submissionId, completion.proofUrl);
     return `<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;justify-content:flex-end;">${proofHtml}<span class="pill gold">✅ تم</span><button class="btn sm ghost" onclick="undoTaskComplete('${task.id}','${cycleKey}')">تراجع</button></div>`;
   }
   return `<label class="btn gold sm" style="cursor:pointer;">إنجاز المهمة<input type="file" accept="image/*,video/*" style="display:none;" onchange="handleTaskFile(event,'${task.id}','${cycleKey}')"></label>`;
@@ -2434,25 +2410,23 @@ async function handleTaskFile(event, taskId, cycleKey){
 }
 async function completeTaskWithProof(taskId, cycleKey, proofType, proofData){
   const user = me(); if(!user) return; const task = getAllCurrentTasks().find(t => t.id === taskId); if(!task || getCompletion(user,taskId,cycleKey)) return;
-  const proofKey = proofData ? taskProofKey(user.id, taskId, cycleKey) : null;
-  const apply = u => { if(!u.completedTasks) u.completedTasks=[]; if(getCompletion(u,taskId,cycleKey)) return; u.completedTasks.push({id:taskId,cycleKey,proofType,proofKey,date:nowStr()}); awardPoints(u, task.points); if(task.title.includes('حفظ')){ if(!Array.isArray(u.memorizationLog)) u.memorizationLog=[]; u.memorizationLog.unshift({text:task.title,date:nowStr()}); } };
-  apply(user); renderInjaz(); if(currentPage==='points') renderRanking(); renderLeaderCompletions();
   try{
-    if(proofKey && proofData) await window.storage.set(proofKey, proofData, true);
-    await updateUserSafely(user.id,apply);
-  }catch(e){ console.error('save task failed', e); toast('تعذّر حفظ الإنجاز، جرّب صورة أصغر'); return; }
-  toast('أحسنت! تم إضافة '+task.points+' نقطة'); await logDiwan('مهام','✅','أنجز '+user.name+' مهمة "'+task.title+'" وحصل على '+task.points+' نقطة');
+    const result = await window.hanabilaSupabaseAuth.feature('student-tasks', { op: 'submit', taskId, cycleKey, proofType, proofData });
+    if(result.alreadyCompleted){ toast('هذه المهمة مسجلة بالفعل'); return; }
+    await reloadUsersFromGateway();
+    renderInjaz(); if(currentPage==='points') renderRanking();
+    void refreshTaskReviewQueue();
+    toast('أحسنت! تم إرسال الإثبات وحصلت على '+(result.points ?? task.points)+' نقطة');
+  }catch(e){ console.error('save task failed', e); toast(e.code === 'conflict' ? 'تغيّر وقت تجدد المهمة؛ حدّث الصفحة وحاول مجددًا' : 'تعذّر حفظ الإنجاز، جرّب صورة أصغر'); }
 }
 async function undoTaskComplete(taskId,cycleKey){
   const user=me(); const task=getAllCurrentTasks().find(t=>t.id===taskId); if(!user||!task) return;
-  const existing = getCompletion(user, taskId, cycleKey);
-  const apply=u=>{ if(!u.completedTasks)return; const i=u.completedTasks.findIndex(c=>typeof c!=='string'&&c.id===taskId&&c.cycleKey===cycleKey); if(i>=0){u.completedTasks.splice(i,1);deductPointsFromUser(u, task.points);} };
-  apply(user); renderInjaz(); if(currentPage==='points')renderRanking();
   try{
-    await updateUserSafely(user.id,apply);
-    if(existing && existing.proofKey){ try{ await window.storage.delete(existing.proofKey, true); }catch(e){ /* حذف الإثبات القديم ليس أمرًا حرجًا إن فشل */ } }
-  }catch(e){toast('تعذّر حفظ التراجع');return;}
-  toast('تم إلغاء الإنجاز');
+    const result = await window.hanabilaSupabaseAuth.feature('student-tasks', { op: 'undo', taskId, cycleKey });
+    await reloadUsersFromGateway();
+    renderInjaz(); if(currentPage==='points')renderRanking();
+    toast('تم إلغاء الإنجاز وسحب '+(result.points || task.points)+' نقطة');
+  }catch(e){toast(e.code === 'conflict' ? 'تعذّر التراجع؛ قد تكون المهمة روجعت أو جرى تحديثها' : 'تعذّر حفظ التراجع');}
 }
 
 /* تظهر هذه القائمة لقائد الأسبوع فقط في صفحة النقاط أسفل الترتيب، وتعرض فقط إثباتات المهام
@@ -2463,19 +2437,12 @@ function renderLeaderCompletions(){
   const leader = isLeader(me());
   if(wrap) wrap.style.display = leader ? 'block' : 'none';
   if(!box || !leader) return;
-  const students = state.users;
-  if(!students.length){ box.innerHTML = '<div class="empty">لا يوجد طلاب مسجلين بعد</div>'; return; }
-  let anyProof = false;
-  const blocks = students.map(u => {
-    const raw = u.completedTasks || [];
-    const withProof = raw.filter(c => typeof c !== 'string' && (c.proofKey || c.proofData) && c.leaderApproved !== true && c.leaderApproved !== false);
-    if(!withProof.length) return '';
-    anyProof = true;
-    const rows = withProof.map(entry => {
-      const t = getAllCurrentTasks().find(tt => tt.id === entry.id);
-      const title = t ? t.title : 'مهمة محذوفة';
-      const points = t ? t.points : 0;
-      const proofLink = proofButtonHtml(entry.proofType, entry.proofKey, entry.proofData);
+  const items = taskReviewQueue || [];
+  if(!items.length){ box.innerHTML = '<div class="empty">لا توجد إثباتات بانتظار المراجعة</div>'; return; }
+  const blocks = items.map(entry => {
+      const title = entry.title || 'مهمة';
+      const points = Number(entry.points) || 0;
+      const proofLink = proofButtonHtml(entry.proofType, null, null, entry.submissionId);
       return `
         <div class="row-item" style="align-items:flex-start;">
           <div class="main">
@@ -2483,15 +2450,14 @@ function renderLeaderCompletions(){
             <div class="d" style="margin-top:6px;display:flex;align-items:center;gap:8px;flex-wrap:wrap;">${proofLink}<span class="pill">⏳ بانتظار المراجعة</span></div>
           </div>
           <div class="actions">
-            <button class="btn sm ghost" title="صح" onclick="setTaskProofApproval('${u.id}','${entry.id}','${entry.cycleKey||''}',true)">✅</button>
-            <button class="btn sm ghost" title="خطأ" onclick="setTaskProofApproval('${u.id}','${entry.id}','${entry.cycleKey||''}',false)">❌</button>
+            <button class="btn sm ghost" title="صح" onclick="setTaskProofApproval('${entry.studentId}','${entry.taskId}','${entry.cycleKey||''}',true)">✅</button>
+            <button class="btn sm ghost" title="خطأ" onclick="setTaskProofApproval('${entry.studentId}','${entry.taskId}','${entry.cycleKey||''}',false)">❌</button>
           </div>
         </div>
       `;
-    }).join('');
-    return `<div class="subsection-label">${escapeHtml(u.name)}</div>${rows}`;
-  }).join('');
-  box.innerHTML = anyProof ? blocks : '<div class="empty">لا توجد إثباتات صور بانتظار المراجعة</div>';
+  });
+  const grouped = items.reduce((out,item,index) => { (out[item.studentName || item.studentId] ||= []).push(blocks[index]); return out; }, {});
+  box.innerHTML = Object.entries(grouped).map(([name,rows]) => `<div class="subsection-label">${escapeHtml(name)}</div>${rows.join('')}`).join('');
 }
 /* مراجعة قائد الأسبوع لإثبات صورة/فيديو المهمة: النقاط تُمنح فورًا عند إنجاز الطالب للمهمة.
    عند الرفض (خطأ) تُسحب النقاط وتُحذف المهمة من قائمة إنجازات الطالب بالكامل (بدل أن تبقى
@@ -2500,40 +2466,17 @@ function renderLeaderCompletions(){
 async function setTaskProofApproval(userId, taskId, cycleKey, approved){
   const leader = me();
   if(!isLeader(leader)) return;
-  const task = getAllCurrentTasks().find(t => t.id === taskId);
-  const points = task ? task.points : 0;
-  let proofKeyToDelete = null;
-  const apply = u => {
-    const raw = u.completedTasks || [];
-    const i = raw.findIndex(c => typeof c !== 'string' && c.id === taskId && (c.cycleKey||'') === (cycleKey||''));
-    if(i < 0) return;
-    const entry = raw[i];
-    if(approved === true){
-      entry.leaderApproved = true;
-    } else {
-      deductPointsFromUser(u, points);
-      proofKeyToDelete = entry.proofKey || null;
-      raw.splice(i, 1);
-    }
-  };
-  const localUser = state.users.find(u => u.id === userId);
-  if(localUser) apply(localUser);
-  renderInjaz();
-  renderLeaderCompletions();
-  if(currentPage === 'points') renderRanking();
   try{
-    await updateUserSafely(userId, apply);
-    if(approved !== true && proofKeyToDelete){
-      try{ await window.storage.delete(proofKeyToDelete, true); }catch(e){ /* حذف الإثبات القديم ليس أمرًا حرجًا إن فشل */ }
-    }
+    await window.hanabilaSupabaseAuth.feature('student-tasks', { op: 'review', studentId: userId, taskId, cycleKey, approved: !!approved });
+    await reloadUsersFromGateway();
+    await refreshTaskReviewQueue();
+    renderInjaz(); if(currentPage === 'points') renderRanking();
   }catch(e){
     console.error('setTaskProofApproval save failed', e);
-    toast('تعذّر حفظ المراجعة، تحقق من اتصالك بالإنترنت');
+    toast(e.code === 'conflict' ? 'تمت مراجعة الإثبات من جلسة أخرى؛ حدّث القائمة' : 'تعذّر حفظ المراجعة');
     return;
   }
-  const studentName = localUser ? localUser.name : '';
   toast(approved ? 'تم اعتماد الإثبات' : 'تم رفض الإثبات وسحب النقاط، وأصبحت المهمة متاحة للطالب من جديد');
-  await logDiwan('مهام', approved ? '✅' : '❌', 'راجع قائد الأسبوع ' + leader.name + ' إثبات ' + studentName + (approved ? ' واعتمده' : ' ورفضه وسحب النقاط، وأُعيدت المهمة له لإنجازها من جديد'));
 }
 
 /* ============================= LEADER: الانجازات ============================= */
@@ -2790,15 +2733,13 @@ async function markNotificationsRead(){
   const user = me();
   if(!user) return;
   const list = getUserNotifications(user);
-  let changed = false;
-  list.forEach(n => {
-    if(!n.readBy) n.readBy = [];
-    if(!n.readBy.includes(user.id)){ n.readBy.push(user.id); changed = true; }
-  });
-  if(changed){
-    await saveShared('notifications');
+  const ids = list.filter(n => !(Array.isArray(n.readBy) && n.readBy.includes(user.id))).map(n => n.id).filter(Boolean);
+  if(!ids.length) return;
+  try{
+    await window.hanabilaSupabaseAuth.markNotificationsRead(ids);
+    state.notifications = (state.notifications || []).map(n => ids.includes(n.id) ? { ...n, readBy: [...new Set([...(n.readBy || []), user.id])] } : n);
     renderNotifications();
-  }
+  }catch(e){ console.error('notification read update failed', e); toast('تعذّر تحديث حالة الإشعار'); }
 }
 async function refreshNotifications(){
   try{
@@ -2823,58 +2764,19 @@ async function registerNotifServiceWorker(){
   }catch(e){ console.warn('تعذّر تسجيل service worker', e); return null; }
 }
 async function saveFcmToken(token){
-  const user = me();
-  if(!user || !token) return;
-  if(!Array.isArray(user.fcmTokens)) user.fcmTokens = [];
-  if(!user.fcmTokens.includes(token)){
-    user.fcmTokens.push(token);
-    if(user.fcmTokens.length > 5) user.fcmTokens = user.fcmTokens.slice(-5); // آخر 5 أجهزة فقط
-    try{
-      await updateUserSafely(user.id, u => {
-        if(!Array.isArray(u.fcmTokens)) u.fcmTokens = [];
-        if(!u.fcmTokens.includes(token)){
-          u.fcmTokens.push(token);
-          if(u.fcmTokens.length > 5) u.fcmTokens = u.fcmTokens.slice(-5);
-        }
-      });
-    }catch(e){ console.error('saveFcmToken save failed', e); }
-  }
+  // Device tokens are private; never persist them through the shared profile array.
+  return undefined;
 }
 async function setupFcmToken(reg){
-  if(!FCM_VAPID_KEY || FCM_VAPID_KEY.includes('ضع_مفتاح')){
-    console.warn('لم يتم ضبط FCM_VAPID_KEY بعد — إشعارات الإغلاق الكامل لن تعمل حتى تضيفه');
-    return;
-  }
-  try{
-    const messaging = firebase.messaging();
-    const token = await messaging.getToken({ vapidKey: FCM_VAPID_KEY, serviceWorkerRegistration: reg });
-    if(token) await saveFcmToken(token);
-  }catch(e){ console.warn('تعذّر الحصول على رمز FCM', e); }
+  return undefined;
 }
 function updatePushStatusText(){
   const el = document.getElementById('pushStatusText');
   if(!el) return;
-  if(!('Notification' in window)){ el.textContent = 'هذا المتصفح لا يدعم إشعارات النظام'; return; }
-  const map = {
-    granted: '✅ إشعارات الجوال مفعّلة — ستصلك لحظة بلحظة',
-    denied: '❌ الإشعارات محظورة، فعّلها من إعدادات المتصفح/الجوال',
-    default: 'لم يتم تفعيل إشعارات الجوال بعد'
-  };
-  el.textContent = map[Notification.permission] || '';
+  el.textContent = 'إشعارات الجوال الخارجية متوقفة مؤقتًا حتى تأمين خدمة إرسال الخادم.';
 }
 async function requestPushPermission(){
-  if(!('Notification' in window)){ toast('المتصفح لا يدعم إشعارات النظام'); return; }
-  try{
-    const perm = await Notification.requestPermission();
-    updatePushStatusText();
-    if(perm === 'granted'){
-      const reg = await registerNotifServiceWorker();
-      if(reg) await setupFcmToken(reg);
-      toast('تم تفعيل إشعارات الجوال بنجاح');
-    } else {
-      toast('لم يتم تفعيل الإشعارات');
-    }
-  }catch(e){ console.error(e); }
+  toast('الإشعارات الخارجية متوقفة مؤقتًا لحماية رموز الأجهزة.');
 }
 function showOsNotification(message, senderName){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -2896,9 +2798,7 @@ function showOsNotification(message, senderName){
 function attachNotificationsListener(){
   if(notifListenerAttached) return;
   notifListenerAttached = true;
-  if('Notification' in window && Notification.permission === 'granted'){
-    registerNotifServiceWorker().then(reg => { if(reg) setupFcmToken(reg); });
-  }
+  // FCM token registration stays disabled until an authenticated server operation is deployed.
   _db.collection('shared').doc('notifications').onSnapshot(doc => {
     if(!doc.exists) return;
     let list = [];
@@ -3839,7 +3739,9 @@ const ATTENDANCE_POINTS = 3;
 const STREAK_MILESTONES = [7, 14, 30];
 function dateKey(d){
   const dt = d ? new Date(d) : new Date();
-  return dt.getFullYear() + '-' + String(dt.getMonth()+1).padStart(2,'0') + '-' + String(dt.getDate()).padStart(2,'0');
+  const parts = new Intl.DateTimeFormat('en-CA', {timeZone:'Asia/Riyadh',year:'numeric',month:'2-digit',day:'2-digit'}).formatToParts(dt);
+  const date = Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  return date.year + '-' + date.month + '-' + date.day;
 }
 function ensureAttendance(user){
   if(!user.attendance) user.attendance = { dates: [], streak: 0, lastDate: null };
@@ -3888,24 +3790,17 @@ async function markAttendance(){
   const att = ensureAttendance(user);
   const today = dateKey();
   if(att.lastDate === today) return;
-  const yesterday = dateKey(Date.now() - 86400000);
-  att.streak = (att.lastDate === yesterday) ? (att.streak || 0) + 1 : 1;
-  att.lastDate = today;
-  if(!att.dates) att.dates = [];
-  att.dates.push(today);
-  if(att.dates.length > 60) att.dates = att.dates.slice(-60);
-  awardPoints(user, ATTENDANCE_POINTS);
+  const previousStreak = Number(att.streak) || 0;
   try{
-    await updateUserSafely(user.id, u => {
-      const uAtt = ensureAttendance(u);
-      if(uAtt.lastDate === today) return;
-      uAtt.streak = (uAtt.lastDate === yesterday) ? (uAtt.streak || 0) + 1 : 1;
-      uAtt.lastDate = today;
-      if(!uAtt.dates) uAtt.dates = [];
-      uAtt.dates.push(today);
-      if(uAtt.dates.length > 60) uAtt.dates = uAtt.dates.slice(-60);
-      awardPoints(u, ATTENDANCE_POINTS);
-    });
+    const result = await window.hanabilaSupabaseAuth.markAttendance();
+    if(result?.ok !== true){
+      if(result?.reason === 'attendance_paused'){ toast('تسجيل الحضور متوقف أثناء الإجازة'); return; }
+      if(result?.alreadyRecorded){ toast('سجّلت حضورك اليوم بالفعل'); return; }
+      throw new Error('attendance_action_failed');
+    }
+    user.attendance = result.attendance || user.attendance;
+    if(Number.isFinite(Number(result.points))) user.points = Number(result.points);
+    if(Number.isFinite(Number(result.totalPoints))) user.totalPoints = Number(result.totalPoints);
   }catch(e){
     console.error('markAttendance save failed', e);
     toast('تعذّر حفظ الحضور، تحقق من اتصالك بالإنترنت');
@@ -3915,10 +3810,7 @@ async function markAttendance(){
   renderStreak();
   if(currentPage === 'attendance') renderAttendancePage();
   if(currentPage === 'points') renderRanking();
-  if(STREAK_MILESTONES.includes(att.streak)){
-    await addPost(user.id, 'حافظ على تتابع حضور ' + att.streak + ' يوم متواصل 🔥', 'auto');
-  }
-  await logDiwan('حضور', '🔥', user.name + ' سجّل حضوره اليومي (+' + ATTENDANCE_POINTS + ' نقطة)' + (att.streak > 1 ? ' — تتابع ' + att.streak + ' يوم' : ''));
+  if(STREAK_MILESTONES.includes(att.streak) && att.streak !== previousStreak) toast('إنجاز رائع: أكملت ' + att.streak + ' يومًا متتابعًا!');
 }
 function renderReminderBanner(){
   const box = document.getElementById('reminderBanner');
@@ -4104,29 +3996,9 @@ function renderAccountPage(){
   updatePushStatusText();
 }
 function handleAvatarFile(event){
-  const user = me();
   const input = event.target;
-  const file = input.files && input.files[0];
-  if(!file || !user) return;
-  if(!file.type.startsWith('image/')){ toast('الرجاء اختيار صورة'); input.value = ''; return; }
-  if(file.size > 1.5 * 1024 * 1024){ toast('حجم الصورة كبير جدًا (الحد الأقصى 1.5 ميجا)'); input.value = ''; return; }
-  const reader = new FileReader();
-  reader.onload = async () => {
-    user.avatar = reader.result;
-    try{
-      await updateUserSafely(user.id, u => { u.avatar = reader.result; });
-    }catch(e){
-      console.error('handleAvatarFile save failed', e);
-      toast('تعذّر حفظ الصورة، تحقق من اتصالك بالإنترنت');
-      input.value = '';
-      return;
-    }
-    renderAccountPage();
-    toast('تم تحديث صورتك الشخصية');
-    input.value = '';
-  };
-  reader.onerror = () => { toast('تعذّرت قراءة الصورة'); input.value = ''; };
-  reader.readAsDataURL(file);
+  if(input) input.value = '';
+  toast('رفع الصور الشخصية سيتاح بعد ربط الرفع الخاص بـ Supabase Storage.');
 }
 async function submitAccountChangePw(){
   const err = document.getElementById('acctPwErr');
@@ -4136,14 +4008,12 @@ async function submitAccountChangePw(){
   const oldPass = document.getElementById('acctPwOld').value;
   const newPass = document.getElementById('acctPwNew').value;
   if(!oldPass || !newPass){ err.textContent = 'الرجاء تعبئة الحقلين'; return; }
-  if(user.password !== oldPass){ err.textContent = 'كلمة المرور الحالية غير صحيحة'; return; }
-  if(newPass.length < 4){ err.textContent = 'كلمة المرور الجديدة قصيرة جداً'; return; }
-  user.password = newPass;
+  if(newPass.length < 12){ err.textContent = 'يجب ألا تقل كلمة المرور الجديدة عن 12 حرفًا'; return; }
   try{
-    await updateUserSafely(user.id, u => { u.password = newPass; });
+    await window.hanabilaSupabaseAuth.changePassword(oldPass, newPass);
   }catch(e){
     console.error('submitAccountChangePw save failed', e);
-    err.textContent = 'تعذّر الحفظ، تحقق من اتصالك بالإنترنت';
+    err.textContent = e.code === 'invalid_credentials' ? 'كلمة المرور الحالية غير صحيحة' : 'تعذّر تغيير كلمة المرور؛ تحقق من اتصالك ثم أعد المحاولة';
     return;
   }
   document.getElementById('acctPwOld').value = '';
@@ -4167,40 +4037,20 @@ function toggleUsernameForm(){
 async function submitAccountChangeUsername(){
   const err = document.getElementById('acctUsernameErr');
   err.textContent = '';
-  const user = me();
-  if(!user) return;
-  const newUsername = document.getElementById('acctNewUsername').value.trim();
-  const pw = document.getElementById('acctUsernamePw').value;
-  if(!newUsername){ err.textContent = 'اكتب اسم المستخدم الجديد'; return; }
-  if(/\s/.test(newUsername)){ err.textContent = 'اسم المستخدم يجب ألا يحتوي على مسافات'; return; }
-  if(!pw){ err.textContent = 'أدخل كلمة المرور لتأكيد التغيير'; return; }
-  if(user.password !== pw){ err.textContent = 'كلمة المرور غير صحيحة'; return; }
-  if(newUsername === user.username){ err.textContent = 'هذا هو اسم المستخدم الحالي بالفعل'; return; }
-  if(state.users.some(u => u.id !== user.id && u.username.toLowerCase() === newUsername.toLowerCase())){
-    err.textContent = 'اسم المستخدم هذا مستخدم بالفعل، اختر اسمًا آخر';
-    return;
-  }
-  user.username = newUsername;
-  try{
-    await updateUserSafely(user.id, u => { u.username = newUsername; });
-  }catch(e){
-    console.error('submitAccountChangeUsername save failed', e);
-    err.textContent = 'تعذّر الحفظ، تحقق من اتصالك بالإنترنت';
-    return;
-  }
-  document.getElementById('acctUsernamePw').value = '';
-  toggleUsernameForm();
-  renderAccountPage();
-  toast('تم تغيير اسم المستخدم بنجاح، استخدمه في تسجيل الدخول القادم');
+  err.textContent = 'تغيير اسم المستخدم متوقف مؤقتًا حتى إضافة عملية خادمية ذرّية؛ لم يُحفظ أي تعديل.';
 }
 async function saveAccountNotifPref(){
   const user = me();
   if(!user) return;
   const pref = document.getElementById('acctNotifToggle').checked;
-  user.notifPref = pref;
   try{
-    await updateUserSafely(user.id, u => { u.notifPref = pref; });
-  }catch(e){ console.error('saveAccountNotifPref save failed', e); }
+    await window.hanabilaSupabaseAuth.setNotificationPreference(pref);
+    user.notifPref = pref;
+  }catch(e){
+    console.error('saveAccountNotifPref save failed', e);
+    document.getElementById('acctNotifToggle').checked = user.notifPref !== false;
+    toast('تعذّر حفظ تفضيل الإشعارات');
+  }
 }
 
 /* ============================= EXPORT ACHIEVEMENT CARD ============================= */
@@ -4976,31 +4826,11 @@ function renderExamArchive(){
 
 /* ============================= REMEMBERED LOGIN SUGGESTION ============================= */
 async function checkRememberedLogin(){
-  try{
-    const r = await window.storage.get('rememberedLogin', false);
-    if(r && r.value){
-      const data = JSON.parse(r.value);
-      if(data && data.userId && data.name){
-        const box = document.getElementById('rememberedLoginBox');
-        const nameSpan = document.getElementById('rememberedLoginName');
-        if(box && nameSpan){
-          nameSpan.textContent = data.name;
-          box.style.display = 'block';
-          box.dataset.userId = data.userId;
-        }
-      }
-    }
-  }catch(e){ /* none saved */ }
+  const box = document.getElementById('rememberedLoginBox');
+  if(box) box.style.display = 'none';
 }
 async function continueRememberedLogin(){
-  const box = document.getElementById('rememberedLoginBox');
-  const userId = box ? box.dataset.userId : null;
-  if(!userId) return;
-  const user = state.users.find(u => u.id === userId);
-  if(!user){ toast('تعذّر العثور على الحساب'); dismissRememberedLogin(); return; }
-  session.userId = user.id;
-  await saveSession();
-  enterApp();
+  toast('يلزم تسجيل الدخول عبر Supabase Auth.');
 }
 function dismissRememberedLogin(){
   const box = document.getElementById('rememberedLoginBox');
@@ -5011,30 +4841,7 @@ function dismissRememberedLogin(){
 function chatCollection(){ return _db.collection('chat_messages'); }
 
 async function migrateOldChatIfNeeded(){
-  // One-time move of legacy single-document chat history into the new realtime collection.
-  try{
-    const already = await chatCollection().limit(1).get();
-    if(!already.empty) return;
-    const r = await window.storage.get('chatMessages', true);
-    if(!r || !r.value) return;
-    const old = JSON.parse(r.value);
-    if(!Array.isArray(old) || !old.length) return;
-    const batch = _db.batch();
-    old.slice(-200).forEach(m => {
-      const ref = chatCollection().doc();
-      batch.set(ref, {
-        userId: m.userId || null,
-        authorName: m.authorName || 'مستخدم',
-        text: m.text || '',
-        type: 'text',
-        mediaUrl: null,
-        mediaPath: null,
-        date: m.date || new Date().toISOString(),
-        seenBy: []
-      });
-    });
-    await batch.commit();
-  }catch(e){ /* nothing to migrate, ignore */ }
+  // Legacy Firestore chat migration is intentionally disabled; chat_messages was imported separately.
 }
 
 function attachChatListener(){
@@ -5135,8 +4942,6 @@ async function sendChatMessage(){
       seenBy: [user.id]
     });
   }catch(e){ console.error(e); toast('تعذّر إرسال الرسالة'); return; }
-  const preview = text.length > 60 ? text.slice(0, 60) + '…' : text;
-  await pushNotification('all', 'رسالة جديدة في الدردشة: ' + preview, user.name, user.id);
 }
 
 function editChatMessage(id){
@@ -5167,13 +4972,9 @@ async function markChatSeen(){
   const unseen = (state.chatMessages || []).filter(m => m.userId !== user.id && (!Array.isArray(m.seenBy) || !m.seenBy.includes(user.id)));
   if(!unseen.length) return;
   try{
-    const batch = _db.batch();
-    unseen.forEach(m => {
-      batch.update(chatCollection().doc(m.id), {
-        seenBy: firebase.firestore.FieldValue.arrayUnion(user.id)
-      });
-    });
-    await batch.commit();
+    await window.hanabilaSupabaseAuth.api({ op: 'chat_seen', ids: unseen.map(m => m.id) });
+    const seenIds = new Set(unseen.map(m => m.id));
+    state.chatMessages = state.chatMessages.map(m => seenIds.has(m.id) ? { ...m, seenBy: [...new Set([...(m.seenBy || []), user.id])] } : m);
   }catch(e){ console.error('mark seen failed', e); }
 }
 
@@ -5249,8 +5050,8 @@ async function deleteUserAccount(userId){
   try{
     await updateAllUsersSafely(users=>{const i=users.findIndex(u=>u.id===userId);if(i>=0)users.splice(i,1);});
     const latest=await window.storage.get('users',true); state.users=JSON.parse(latest.value||'[]');
-    await transactionalSharedArray('excuses',list=>{for(let i=list.length-1;i>=0;i--)if(list[i].userId===userId)list.splice(i,1);});
-    const ex=await window.storage.get('excuses',true); state.excuses=JSON.parse(ex.value||'[]');
+    await window.hanabilaSupabaseAuth.feature('student-leaves',{op:'excuse_delete_owner',userId});
+    await loadState(); state.legacyExcuses=null; await refreshLeaveData();
     await logDiwan('إدارة','🗑️','أزال قائد الأسبوع حساب '+target.name);
     renderLeaderUsers(); if(currentPage==='vacations')renderVacationsPage(); toast('تمت إزالة الحساب');
   }catch(e){console.error('deleteUserAccount failed',e);toast('تعذّر إزالة الحساب، تحقق من الاتصال');}
@@ -5264,8 +5065,17 @@ function leaveRulesForMode(mode, custom){
   if(mode==='meetings') return {attendance:false,penalties:true,streak:false,tasks:false,meetings:true,reminders:true,absence:false};
   return Object.assign(base,custom||{});
 }
-function leaveStartDate(v){ const d=new Date(v&&v.start); return Number.isNaN(d.getTime())?null:d; }
-function leaveEndDate(v){ if(!v||!v.end)return null; const d=new Date(v.end); if(Number.isNaN(d.getTime()))return null; if(/^\d{4}-\d{2}-\d{2}$/.test(String(v.end)))d.setHours(23,59,59,999); return d; }
+function leaveDateBoundary(value,endOfDay){
+  const text=String(value||''),match=/^(\d{4})-(\d{2})-(\d{2})$/.exec(text);
+  if(match){
+    const year=Number(match[1]),month=Number(match[2]),day=Number(match[3]),utc=Date.UTC(year,month-1,day),check=new Date(utc);
+    if(check.getUTCFullYear()!==year||check.getUTCMonth()!==month-1||check.getUTCDate()!==day)return null;
+    return new Date(utc-3*60*60*1000+(endOfDay?24*60*60*1000-1:0));
+  }
+  const d=new Date(value); return Number.isNaN(d.getTime())?null:d;
+}
+function leaveStartDate(v){ return leaveDateBoundary(v&&v.start,false); }
+function leaveEndDate(v){ return leaveDateBoundary(v&&v.end,true); }
 function leaveIsActive(v,now){ const a=leaveStartDate(v),b=leaveEndDate(v),n=now||new Date(); return !!(v&&a&&b&&a<=n&&n<=b&&v.status!=='cancelled'&&v.status!=='rejected'); }
 function leaveIsScheduled(v){ const a=leaveStartDate(v),b=leaveEndDate(v); return !!(v&&a&&b&&a>new Date()&&v.status!=='cancelled'&&v.status!=='rejected'); }
 function activeIndividualLeave(user){
@@ -5329,16 +5139,16 @@ function renderVacationsPage(){
   const v=state.vacations||activeIndividualLeave(user),status=document.getElementById('vacationStatus');
   if(status)status.innerHTML=v&&v.start&&v.end?`<div class="${leaveIsActive(v)?'status-warn':leaveIsScheduled(v)?'status-ok':'d'}"><b>${leaveIsActive(v)?'🌿 إجازة سارية حاليًا':leaveIsScheduled(v)?'🗓️ إجازة مجدولة':'إجازة منتهية'}</b><div style="font-size:17px;margin-top:7px;color:var(--gold-soft);">${leaveDateText(v.start)} → ${leaveDateText(v.end)}</div><div class="d">${escapeHtml(formatLeaveRemaining(v))} • ${escapeHtml(leaveLabel(v))} • أعلنها ${escapeHtml(v.by||'—')}</div><div class="d" style="margin-top:5px;white-space:pre-wrap;">${escapeHtml(v.note||'')}</div><div class="d" style="margin-top:5px;">المتوقف: ${Object.entries(v.rules||{}).filter(x=>x[1]).map(x=>escapeHtml(x[0])).join('، ')||'لا شيء'}</div></div>`:'<div class="empty">لا توجد إجازة جماعية معلنة</div>';
   const reqBox=document.getElementById('leaveRequestsList'),all=Array.isArray(state.leaveRequests)?state.leaveRequests:[],filter=document.getElementById('leaderExcuseFilter')?.value||'all',visible=all.filter(x=>(leader||x.userId===user?.id)&&(filter==='all'||x.status===filter));
-  if(reqBox)reqBox.innerHTML=visible.length?visible.slice().reverse().map(x=>`<div class="proposal-card"><div class="eyebrow">${escapeHtml(x.authorName||'طالب')} • ${escapeHtml(x.type||'إجازة')} • ${escapeHtml(x.status||'قيد المراجعة')}</div><div style="margin-top:6px;font-weight:800;color:var(--gold-soft);">${escapeHtml(leaveDateText(x.start))} → ${escapeHtml(leaveDateText(x.end))}</div><div style="margin-top:6px;line-height:1.8;white-space:pre-wrap;">${escapeHtml(x.reason||'')}</div><div class="d">${escapeHtml(leaveLabel(x))} • حماية السلسلة: ${x.protectStreak?'نعم':'لا'}</div>${x.aiReview?`<div class="card" style="margin-top:8px;padding:10px;"><b>تحليل الذكاء:</b> ${escapeHtml(x.aiReview.summary||'')}<div class="d">التوصية: ${escapeHtml(x.aiReview.recommendation||'مراجعة')} • مستوى المخاطرة: ${escapeHtml(x.aiReview.risk||'—')}</div></div>`:''}${x.attachmentUrl?`<div class="d"><a href="${escapeHtml(x.attachmentUrl)}" target="_blank" rel="noopener">عرض المرفق</a></div>`:''}${leader&&x.status==='pending'?`<div class="proposal-actions"><button class="btn sm gold" onclick="decideLeaveRequest('${x.id}','approved')">اعتماد</button><button class="btn sm" onclick="decideLeaveRequest('${x.id}','rejected')">رفض</button><button class="btn sm ghost" onclick="analyzeLeaveRequest('${x.id}')">تحليل ذكي</button></div>`:''}</div>`).join(''):'<div class="empty">لا توجد طلبات إجازة</div>';
+  if(reqBox)reqBox.innerHTML=visible.length?visible.slice().reverse().map(x=>`<div class="proposal-card"><div class="eyebrow">${escapeHtml(x.authorName||'طالب')} • ${escapeHtml(x.type||'إجازة')} • ${escapeHtml(x.status||'قيد المراجعة')}</div><div style="margin-top:6px;font-weight:800;color:var(--gold-soft);">${escapeHtml(leaveDateText(x.start))} → ${escapeHtml(leaveDateText(x.end))}</div><div style="margin-top:6px;line-height:1.8;white-space:pre-wrap;">${escapeHtml(x.reason||'')}</div><div class="d">${escapeHtml(leaveLabel(x))} • حماية السلسلة: ${x.protectStreak?'نعم':'لا'}</div>${x.aiReview?`<div class="card" style="margin-top:8px;padding:10px;"><b>تحليل الذكاء:</b> ${escapeHtml(x.aiReview.summary||'')}<div class="d">التوصية: ${escapeHtml(x.aiReview.recommendation||'مراجعة')} • مستوى المخاطرة: ${escapeHtml(x.aiReview.risk||'—')}</div></div>`:''}${x.attachmentUrl?`<div class="d"><a href="${escapeHtml(x.attachmentUrl)}" target="_blank" rel="noopener">عرض المرفق</a></div>`:''}${leader&&!x._legacyReadOnly&&x.status==='pending'?`<div class="proposal-actions"><button class="btn sm gold" onclick="decideLeaveRequest('${x.id}','approved')">اعتماد</button><button class="btn sm" onclick="decideLeaveRequest('${x.id}','rejected')">رفض</button><button class="btn sm ghost" onclick="analyzeLeaveRequest('${x.id}')">تحليل ذكي</button></div>`:''}</div>`).join(''):'<div class="empty">لا توجد طلبات إجازة</div>';
   const exList=document.getElementById('excusesList'),ex=Array.isArray(state.excuses)?state.excuses:[],wanted=leader&&document.getElementById('leaderExcuseFilter')?.value||'all',arr=ex.filter(x=>(leader||x.userId===user?.id)&&(wanted==='all'||wanted===x.status));
-  if(exList)exList.innerHTML=arr.length?arr.map(x=>`<div class="excuse-card"><div class="eyebrow">${escapeHtml(x.authorName)} • ${escapeHtml(x.type)} • ${escapeHtml(x.date)}</div><div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(x.text)}</div><div class="d">الحالة: ${escapeHtml(x.status||'قيد المراجعة')} ${x.attachmentUrl?`• <a href="${escapeHtml(x.attachmentUrl)}" target="_blank" rel="noopener">عرض المرفق</a>`:''}</div>${leader&&x.status==='pending'?`<div class="proposal-actions"><button class="btn sm gold" onclick="reviewExcuse('${x.id}','approved')">اعتماد</button><button class="btn sm" onclick="reviewExcuse('${x.id}','rejected')">رفض</button></div>`:''}</div>`).join(''):'<div class="empty">لا توجد أعذار معروضة</div>';
+  if(exList)exList.innerHTML=arr.length?arr.map(x=>`<div class="excuse-card"><div class="eyebrow">${escapeHtml(x.authorName)} • ${escapeHtml(x.type)} • ${escapeHtml(x.date)}</div><div style="margin-top:6px;white-space:pre-wrap;">${escapeHtml(x.text)}</div><div class="d">الحالة: ${escapeHtml(x.status||'قيد المراجعة')} ${x.attachmentUrl?`• <a href="${escapeHtml(x.attachmentUrl)}" target="_blank" rel="noopener">عرض المرفق</a>`:''}</div>${leader&&!x._legacyReadOnly&&x.status==='pending'?`<div class="proposal-actions"><button class="btn sm gold" onclick="reviewExcuse('${x.id}','approved')">اعتماد</button><button class="btn sm" onclick="reviewExcuse('${x.id}','rejected')">رفض</button></div>`:''}</div>`).join(''):'<div class="empty">لا توجد أعذار معروضة</div>';
   renderLeaveHistory();
 }
 function leaveRequestHasOverlap(req){ return (state.leaveRequests||[]).some(x=>x.status==='approved'&&x.userId===req.userId&&leaveStartDate(x)<leaveEndDate(req)&&leaveEndDate(x)>leaveStartDate(req)); }
 async function analyzeLeavePayload(req){ try{const r=await fetch('/.netlify/functions/generate-exam',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'leaveAnalyze',source:JSON.stringify({type:req.type,mode:req.mode,start:req.start,end:req.end,reason:req.reason,protectStreak:req.protectStreak,existingRequests:(state.leaveRequests||[]).filter(x=>x.userId===req.userId&&x.status==='approved').map(x=>({start:x.start,end:x.end,status:x.status}))},null,2)})}),d=await r.json();return r.ok?d.result:null;}catch(e){console.warn('leave AI unavailable',e);return null;}}
-async function analyzeLeaveRequest(id){ if(!isLeader(me()))return; const x=(state.leaveRequests||[]).find(r=>r.id===id);if(!x)return; toast('جارٍ تحليل الطلب ذكيًا...'); x.aiReview=await analyzeLeavePayload(x); await saveShared('leaveRequests'); renderVacationsPage(); }
-async function submitLeaveRequest(){ const user=me(),start=document.getElementById('leaveRequestStart')?.value,end=document.getElementById('leaveRequestEnd')?.value,reason=document.getElementById('leaveRequestReason')?.value.trim(),type=document.getElementById('leaveRequestType')?.value||'عادية',mode=document.getElementById('leaveRequestMode')?.value||'light',file=document.getElementById('leaveRequestFile')?.files?.[0],protect=!!document.getElementById('leaveProtectStreak')?.checked; if(!user||!start||!end||!reason){toast('أكمل بيانات طلب الإجازة');return;} const req={id:uid(),scope:'individual',userId:user.id,authorName:user.name,start,end,type,mode,reason:reason.slice(0,1000),protectStreak:protect,rules:leaveRulesForMode(mode,{streak:protect}),status:'pending',createdAt:new Date().toISOString(),updatedAt:new Date().toISOString()}; if(leaveStartDate(req)>=leaveEndDate(req)){toast('النهاية يجب أن تكون بعد البداية');return;} if(leaveEndDate(req)<new Date()){toast('لا يمكن طلب إجازة منتهية');return;} if(leaveRequestHasOverlap(req)){toast('يوجد تداخل مع إجازة معتمدة');return;} if(file){if(file.size>2*1024*1024){toast('حجم المرفق يجب ألا يتجاوز 2MB');return;}try{const ref=_storage.ref('leave-requests/'+user.id+'/'+uid()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_'));const snap=await ref.put(file);req.attachmentUrl=await snap.ref.getDownloadURL();req.attachmentType=file.type;}catch(e){toast('تعذر رفع المرفق');return;}} req.aiReview=await analyzeLeavePayload(req); await transactionalSharedArray('leaveRequests',list=>{list.push(req);}); state.leaveRequests.push(req); await transactionalSharedArray('leaveHistory',list=>{list.unshift(Object.assign({},req,{title:'طلب إجازة فردية',status:'pending'}));}); state.leaveHistory.unshift(Object.assign({},req,{title:'طلب إجازة فردية',status:'pending'})); ['leaveRequestStart','leaveRequestEnd','leaveRequestReason','leaveRequestFile'].forEach(id=>{const e=document.getElementById(id);if(e)e.value='';}); renderVacationsPage();toast('تم إرسال الطلب وسيُراجع من القائد'); }
-async function decideLeaveRequest(id,status){ if(!isLeader(me())||!['approved','rejected'].includes(status))return; const req=(state.leaveRequests||[]).find(x=>x.id===id);if(!req)return; req.status=status;req.approvedBy=me().name;req.approvedAt=new Date().toISOString();req.updatedAt=req.approvedAt; await saveShared('leaveRequests'); await transactionalSharedArray('leaveHistory',list=>{list.unshift(Object.assign({},req,{title:'قرار طلب إجازة'}));}); state.leaveHistory.unshift(Object.assign({},req,{title:'قرار طلب إجازة'})); renderVacationsPage();toast(status==='approved'?'تم اعتماد الإجازة':'تم رفض الطلب'); }
+async function analyzeLeaveRequest(){ toast('بوابة الإجازات غير متاحة'); }
+async function submitLeaveRequest(){ toast('بوابة الإجازات غير متاحة'); }
+async function decideLeaveRequest(){ toast('بوابة الإجازات غير متاحة'); }
 async function saveVacation(){ const user=me(),start=document.getElementById('vacationStart')?.value,end=document.getElementById('vacationEnd')?.value,mode=document.getElementById('vacationMode')?.value||'full',note=document.getElementById('vacationNote')?.value.trim(); if(!isLeader(user)||!start||!end||!note){toast('أكمل بيانات الإجازة الجماعية');return;} const v={id:uid(),scope:'all',mode,start,end,note:note.slice(0,500),by:user.name,createdAt:new Date().toISOString(),updatedAt:new Date().toISOString(),status:'scheduled',rules:collectVacationRules()}; const errors=leavePolicyChecks(v);if(errors.length||leaveEndDate(v)<=leaveStartDate(v)||leaveEndDate(v)<new Date()){toast(errors[0]||'تحقق من التواريخ');return;} if(state.vacations&&leaveIsActive(state.vacations)){toast('هناك إجازة جماعية سارية حاليًا');return;} state.vacations=v;await saveShared('vacations');state.leaveHistory.unshift(Object.assign({},v,{title:'إجازة جماعية'}));await saveShared('leaveHistory');renderVacationsPage();renderHomeVacationBanner();toast('تم تفعيل الإجازة وإيقاف الالتزامات المحددة'); }
 async function clearVacation(){ if(!isLeader(me()))return; if(!state.vacations){toast('لا توجد إجازة جماعية');return;} const old=Object.assign({},state.vacations,{status:'cancelled',updatedAt:new Date().toISOString(),title:'إنهاء إجازة جماعية'});state.leaveHistory.unshift(old);state.vacations=null;await saveShared('vacations');await saveShared('leaveHistory');renderVacationsPage();renderHomeVacationBanner();toast('تم إنهاء الإجازة'); }
 async function sendWhatsAppTest(){
@@ -5353,8 +5163,8 @@ async function notifyLeaderByWhatsApp(payload){
     if(!response.ok) console.warn('WhatsApp notification was not sent',response.status);
   }catch(error){ console.warn('WhatsApp notification unavailable',error); }
 }
-async function submitExcuse(){ const user=me(), text=document.getElementById('excuseText').value.trim(), type=document.getElementById('excuseType').value, file=document.getElementById('excuseFile').files[0]; if(!user||!text){toast('اكتب تفاصيل العذر');return;} if(file&&file.size>2*1024*1024){toast('حجم المرفق يجب ألا يتجاوز 2MB');return;} let attachmentUrl=''; try{ if(file){ const ref=_storage.ref('excuses/'+user.id+'/'+uid()+'-'+file.name.replace(/[^a-zA-Z0-9._-]/g,'_')); const snap=await ref.put(file); attachmentUrl=await snap.ref.getDownloadURL(); } const excuseDate=nowStr(); await transactionalSharedArray('excuses',list=>{list.unshift({id:uid(),userId:user.id,authorName:user.name,type,text:text.slice(0,1000),date:excuseDate,status:'pending',createdAt:new Date().toISOString(),attachmentUrl,attachmentType:file ? file.type : ''});if(list.length>300)list.length=300;}); const r=await window.storage.get('excuses',true);state.excuses=JSON.parse(r.value||'[]'); await notifyLeaderByWhatsApp({student:user.name,type,details:text,date:excuseDate,hasAttachment:Boolean(file)}); document.getElementById('excuseText').value='';document.getElementById('excuseFile').value='';renderVacationsPage();toast('تم إرسال العذر وإشعار القائد'); }catch(e){console.error(e);toast('تعذّر إرسال العذر، تحقق من الاتصال وقواعد Firebase');} }
-async function reviewExcuse(id,status){ if(!isLeader(me()))return; await transactionalSharedArray('excuses',list=>{const x=list.find(y=>y.id===id);if(x){x.status=status;x.reviewedBy=me().name;x.reviewedAt=nowStr();}}); const r=await window.storage.get('excuses',true);state.excuses=JSON.parse(r.value||'[]');renderVacationsPage(); }
+async function submitExcuse(){toast('بوابة العذر غير جاهزة');}
+async function reviewExcuse(){toast('بوابة العذر غير جاهزة');}
 
 let currentGeneratedAiExam = null;
 
@@ -5804,42 +5614,24 @@ async function auditPointsAndLeadership(){
   renderLeadershipStatus();
 }
 async function init(){
-  await loadState();
-  await refreshLeaveData();
-  await seedDefaultUsers();
-  await removeOmarAccountOnce();
-  await checkLeaderRenewal();
-  await auditPointsAndLeadership();
-  // التعيين اليدوي القديم معطل؛ قائد الأسبوع يحدده أعلى نقاط عند السبت 1:30.
-  await checkTaskRenewal();
-  await migrateOldChatIfNeeded();
-  attachChatListener();
-  attachNotificationsListener();
-  attachSharedLiveListener();
-  if(session.userId && me()){
-    enterApp();
-  } else {
-    document.getElementById('authScreen').style.display = 'flex';
-    document.getElementById('app').style.display = 'none';
-    checkRememberedLogin();
+  document.getElementById('authScreen').style.display = 'flex';
+  document.getElementById('app').style.display = 'none';
+  try{
+    const restored = await window.hanabilaSupabaseAuth.restore();
+    if(!restored){ checkRememberedLogin(); return; }
+    if(restored.needsPasswordReset){ session.userId = restored.user.id; showForcedPasswordReset(); return; }
+    await startAuthenticatedSession(restored.user.id);
+  }catch(e){
+    console.warn('Supabase session restore failed', e);
+    try{ await window.hanabilaSupabaseAuth.signOut(); }catch(_){}
+    session.userId = null;
+    const errorBox = document.getElementById('authErr');
+    if(errorBox) errorBox.textContent = 'انتهت الجلسة أو تعذر تحميل بيانات الحساب. سجّل الدخول من جديد.';
   }
-  setInterval(checkLeaderRenewal, 60000);
-  setInterval(checkTaskRenewal, 60000);
-  setInterval(checkMeetingReminder, 30000);
-  setInterval(()=>{ renderHomeVacationBanner(); if(currentPage==='vacations')renderVacationsPage(); }, 60000);
-
-  /* تجدد النقاط/القيادة مرتبط بلحظة فتح الصفحة أو دقّة المؤقت (setInterval)، والمتصفحات
-     (خصوصًا على الهاتف) تُجمّد هذا المؤقت بمجرد تصغير الصفحة أو قفل الشاشة أو التنقل لتطبيق
-     آخر. لذلك إن حان موعد التجدد (السبت 1:30 ظهرًا) وكانت الصفحة في الخلفية، لا يُنفَّذ التجديد
-     فورًا بل يتأخر حتى يعاد تشغيل المؤقت لاحقًا — وهذا ما كان يجعله يظهر متأخرًا (كالاثنين
-     مثلاً) بدل السبت مباشرة. الحل هنا: نتحقق فورًا في اللحظة التي تعود فيها الصفحة إلى الواجهة
-     أو التركيز (وليس فقط عند الفتح الأول)، بحيث يقع التجديد بأقرب لحظة ممكنة من الموعد الحقيقي. */
-  const recheckRenewalsNow = () => { checkLeaderRenewal(); checkTaskRenewal(); auditPointsAndLeadership(); renderHomeVacationBanner(); if(currentPage==='vacations')renderVacationsPage(); };
-  document.addEventListener('visibilitychange', () => { if(!document.hidden) recheckRenewalsNow(); });
-  window.addEventListener('focus', recheckRenewalsNow);
 }
-init();
 </script>
+<script src="/supabase-feature-cutover.js?v=1"></script>
+<script>init();</script>
 <script>if('serviceWorker' in navigator){window.addEventListener('load',()=>navigator.serviceWorker.register('/sw.js').catch(()=>{}));}
 async function runAiStudyLab(){
  const source=(document.getElementById('aiLabSource')?.value||'').trim(), action=document.getElementById('aiLabAction')?.value||'summary', topic=(document.getElementById('aiLabTopic')?.value||'').trim(), answer=(document.getElementById('aiLabAnswer')?.value||'').trim(), dataText=(document.getElementById('aiLabData')?.value||'').trim(), box=document.getElementById('aiLabOutput');
