@@ -1,0 +1,23 @@
+{
+  "name": "hnablaroad",
+  "version": "1.0.0",
+  "description": "This repository contains the currently deployed Netlify snapshot for the existing site. The `index.html` file is the deployment bundle rather than the original editable source tree.",
+  "main": "supabase-auth-client.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/elyas774/hnablaroad.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/elyas774/hnablaroad/issues"
+  },
+  "homepage": "https://github.com/elyas774/hnablaroad#readme",
+  "dependencies": {
+    "web-push": "^4.0.0"
+  }
+}

@@ -125,6 +125,14 @@
       return this._authenticatedPost(`/.netlify/functions/${name}`, payload);
     }
 
+    pushSubscription(action, subscription) {
+      return this._authenticatedPost("/.netlify/functions/push-subscription", {
+        action,
+        subscription,
+        userAgent: typeof navigator !== "undefined" ? navigator.userAgent : ""
+      });
+    }
+
     resetTemporaryPassword(newPassword) {
       if (typeof newPassword !== "string" || newPassword.length < 12 || newPassword.length > 128) {
         throw Object.assign(new Error("password_must_be_12_to_128_chars"), { code: "password_must_be_12_to_128_chars" });

@@ -2050,6 +2050,8 @@ async function startAuthenticatedSession(userId){
   attachChatListener();
   attachNotificationsListener();
   attachSharedLiveListener();
+  void registerNotifServiceWorker();
+  updatePushStatusText();
   if(isLeader(me())) void refreshTaskReviewQueue();
   enterApp();
 }
@@ -2717,7 +2719,7 @@ async function triggerBackgroundPush(notificationId){
   if(!notificationId) return;
   try{
     await fetch('/.netlify/functions/send-push', {
-      method:'POST', headers:{'Content-Type':'application/json'},
+      method:'POST', headers:{'Content-Type':'application/json', ...(window.hanabilaSupabaseAuth.session?.access_token ? {Authorization:'Bearer '+window.hanabilaSupabaseAuth.session.access_token} : {})},
       body:JSON.stringify({notificationId})
     });
   }catch(e){ console.warn('background push unavailable', e); }
@@ -2781,19 +2783,32 @@ async function registerNotifServiceWorker(){
   }catch(e){ console.warn('تعذّر تسجيل service worker', e); return null; }
 }
 async function saveFcmToken(token){
-  // Device tokens are private; never persist them through the shared profile array.
-  return undefined;
+  if(!token) return;
+  try{ await window.hanabilaSupabaseAuth.pushSubscription('subscribe', token); updatePushStatusText('تم تفعيل الإشعارات على هذا الجهاز'); }
+  catch(e){ console.warn('تعذر حفظ اشتراك الإشعارات',e); updatePushStatusText('تعذر تفعيل الإشعارات'); }
 }
 async function setupFcmToken(reg){
-  return undefined;
+  if(!reg || !('PushManager' in window)) return null;
+  const subscription = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY)});
+  await saveFcmToken(subscription.toJSON());
+  return subscription;
 }
-function updatePushStatusText(){
+const WEB_PUSH_PUBLIC_KEY = 'BAPbSTSmcLsNiMS1peStLDYeRHiibl-4BUilFQBrRMRMYvkwMZRGQqq9_iNkK6kRcdz3D7qtqPs8_9Wd-B-esiU';
+function urlBase64ToUint8Array(base64String){ const padding='='.repeat((4-base64String.length%4)%4),base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(base64); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); }
+function updatePushStatusText(text){
   const el = document.getElementById('pushStatusText');
   if(!el) return;
-  el.textContent = 'إشعارات الجوال الخارجية متوقفة مؤقتًا حتى تأمين خدمة إرسال الخادم.';
+  el.textContent = text || (('Notification' in window && Notification.permission === 'granted') ? 'إشعارات الجوال مفعلة على هذا الجهاز' : 'فعّل الإشعارات لتصلك حتى عند إغلاق الموقع');
 }
 async function requestPushPermission(){
-  toast('الإشعارات الخارجية متوقفة مؤقتًا لحماية رموز الأجهزة.');
+  if(!('Notification' in window) || !('serviceWorker' in navigator) || !('PushManager' in window)){ toast('هذا المتصفح لا يدعم الإشعارات الفورية'); return; }
+  try{
+    const permission = await Notification.requestPermission();
+    if(permission !== 'granted'){ updatePushStatusText('لم يتم السماح بالإشعارات'); return; }
+    const reg = notifServiceWorkerReg || await registerNotifServiceWorker();
+    await setupFcmToken(reg);
+    updatePushStatusText(); toast('تم تفعيل الإشعارات على هذا الجهاز');
+  }catch(e){ console.error('push permission failed',e); toast('تعذر تفعيل الإشعارات'); }
 }
 function showOsNotification(message, senderName){
   if(!('Notification' in window) || Notification.permission !== 'granted') return;
@@ -2815,7 +2830,6 @@ function showOsNotification(message, senderName){
 function attachNotificationsListener(){
   if(notifListenerAttached) return;
   notifListenerAttached = true;
-  // FCM token registration stays disabled until an authenticated server operation is deployed.
   _db.collection('shared').doc('notifications').onSnapshot(doc => {
     if(!doc.exists) return;
     let list = [];
