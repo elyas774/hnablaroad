@@ -2761,7 +2761,7 @@ async function setupPushSubscription(reg){
   await savePushSubscription(subscription.toJSON());
   return subscription;
 }
-const WEB_PUSH_PUBLIC_KEY = 'BAPbSTSmcLsNiMS1peStLDYeRHiibl-4BUilFQBrRMRMYvkwMZRGQqq9_iNkK6kRcdz3D7qtqPs8_9Wd-B-esiU';
+const WEB_PUSH_PUBLIC_KEY = 'BJSHjL13xKGSLg1r7sgzxtbIpNgOTxKQnHdQsddje0V48uGU3wfUDAfwZLuDj8mRNQ7uXi5ebxBNTpdqYj1uP_I';
 function urlBase64ToUint8Array(base64String){ const padding='='.repeat((4-base64String.length%4)%4),base64=(base64String+padding).replace(/-/g,'+').replace(/_/g,'/'),raw=atob(base64); return Uint8Array.from([...raw].map(c=>c.charCodeAt(0))); }
 function updatePushStatusText(text){
   const el = document.getElementById('pushStatusText');
