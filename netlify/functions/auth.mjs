@@ -8,6 +8,8 @@
  */
 const MAX_BODY_BYTES = 8 * 1024;
 const USERNAME_RE = /^[A-Za-z0-9_.-]{1,64}$/;
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE_RE = /^\+?[0-9][0-9\s-]{7,19}$/;
 
 function env(name) {
   try {
@@ -112,7 +114,13 @@ async function login(base, publishable, service, body) {
     key: publishable,
     body: { email: authUser.email, password }
   });
-  if (!result.ok) throw error(401, "invalid_credentials");
+  if (!result.ok) {
+    const message = String(result.data?.msg || result.data?.message || "").toLowerCase();
+    if (result.data?.error_code === "email_not_confirmed" || message.includes("email not confirmed")) {
+      throw error(403, "email_not_confirmed");
+    }
+    throw error(401, "invalid_credentials");
+  }
   const safe = safeSession(result.data);
   if (safe.session.user.id !== rows[0].auth_user_id) throw error(401, "invalid_credentials");
   safe.user = {
@@ -122,6 +130,70 @@ async function login(base, publishable, service, body) {
     needsPasswordReset: !!rows[0].needs_password_reset
   };
   return safe;
+}
+
+async function supabaseRequest(base, path, { method = "GET", key, body, prefer } = {}) {
+  const headers = { apikey: key, authorization: `Bearer ${key}` };
+  if (body !== undefined) headers["content-type"] = "application/json";
+  if (prefer) headers.prefer = prefer;
+  const response = await fetch(`${base}${path}`, {
+    method, headers, body: body === undefined ? undefined : JSON.stringify(body)
+  });
+  if (!response.ok) throw error(503, "registration_failed");
+  const text = await response.text();
+  try { return text ? JSON.parse(text) : null; } catch (_) { return null; }
+}
+
+async function register(base, publishable, service, body) {
+  const username = typeof body.username === "string" ? body.username.trim() : "";
+  const name = typeof body.name === "string" ? body.name.trim() : "";
+  const email = typeof body.email === "string" ? body.email.trim().toLowerCase() : "";
+  const phone = typeof body.phone === "string" ? body.phone.trim() : "";
+  const password = typeof body.password === "string" ? body.password : "";
+  if (!USERNAME_RE.test(username) || name.length < 2 || name.length > 120
+      || !EMAIL_RE.test(email) || !PHONE_RE.test(phone)
+      || password.length < 12 || password.length > 128) {
+    throw error(400, "invalid_registration");
+  }
+  const existing = await serviceRows(base, service,
+    `username=eq.${encodeURIComponent(username)}&select=legacy_id&limit=1`);
+  if (existing.length) throw error(409, "username_taken");
+
+  const created = await authJson(base, "/auth/v1/signup", {
+    key: publishable,
+    body: { email, password, data: { full_name: name, username, phone } }
+  });
+  if (!created.ok) {
+    const message = String(created.data?.msg || created.data?.message || "").toLowerCase();
+    if (message.includes("already registered") || message.includes("already exists")) throw error(409, "email_taken");
+    throw error(400, "registration_failed");
+  }
+  const authUser = created.data?.user;
+  if (!authUser?.id) throw error(503, "registration_failed");
+  const legacyId = `user_${crypto.randomUUID()}`;
+  try {
+    await supabaseRequest(base, "/rest/v1/app_users", {
+      method: "POST", key: service, prefer: "return=minimal",
+      body: { legacy_id: legacyId, auth_user_id: authUser.id, username, display_name: name,
+        profile: { email, phone }, needs_password_reset: false }
+    });
+    const usersRows = await supabaseRequest(base, "/rest/v1/shared?id=eq.users&select=id,data,version&limit=1", { key: service });
+    const row = Array.isArray(usersRows) ? usersRows[0] : null;
+    const users = Array.isArray(row?.data?.value) ? row.data.value : [];
+    const nextUsers = [...users, { id: legacyId, name, username, email, phone, points: 0, completedTasks: [], journey: {} }];
+    await supabaseRequest(base, "/rest/v1/shared", {
+      method: "POST", key: service, prefer: "resolution=merge-duplicates,return=minimal",
+      body: { id: "users", data: { value: nextUsers }, version: Number(row?.version || 0) + 1, updated_at: new Date().toISOString() }
+    });
+  } catch (e) {
+    await authJson(base, `/auth/v1/admin/users/${encodeURIComponent(authUser.id)}`, { method: "DELETE", key: service, bearer: service });
+    throw error(503, "registration_failed");
+  }
+  return {
+    registered: true,
+    emailVerificationRequired: !created.data?.session,
+    message: !created.data?.session ? "تم إنشاء الحساب. تحقق من بريدك الإلكتروني ثم سجّل الدخول." : "تم إنشاء الحساب وتسجيل الدخول."
+  };
 }
 
 async function refresh(base, publishable, service, body) {
@@ -220,6 +292,7 @@ export default async function handler(request) {
     const service = env("SUPABASE_SERVICE_ROLE_KEY");
     if (!base || !publishable || !service) throw error(503, "server_not_configured");
 
+    if (body.action === "register") return json(await register(base, publishable, service, body));
     if (body.action === "login") return json(await login(base, publishable, service, body));
     if (body.action === "refresh") return json(await refresh(base, publishable, service, body));
     if (body.action === "logout") return json(await logout(base, publishable, body));
@@ -227,7 +300,7 @@ export default async function handler(request) {
     return json({ error: "unsupported_action" }, 400);
   } catch (e) {
     const status = Number(e?.status) || 503;
-    const allowed = new Set(["invalid_credentials", "session_expired", "account_not_linked", "password_reset_required", "password_change_failed", "invalid_request", "payload_too_large", "unsupported_action", "server_not_configured", "auth_unavailable"]);
+    const allowed = new Set(["invalid_credentials", "email_not_confirmed", "invalid_registration", "username_taken", "email_taken", "registration_failed", "session_expired", "account_not_linked", "password_reset_required", "password_change_failed", "invalid_request", "payload_too_large", "unsupported_action", "server_not_configured", "auth_unavailable"]);
     const code = allowed.has(e?.message) ? e.message : "auth_unavailable";
     if (status >= 500) console.error("auth endpoint failed", { status, code });
     return json({ error: code }, status);

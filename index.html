@@ -1935,21 +1935,22 @@ async function checkMeetingReminder(){
 /* ============================= AUTH ============================= */
 let forcePasswordResetMode = false;
 function openAuthForm(mode){
-  authMode = 'login';
+  authMode = mode === 'register' ? 'register' : 'login';
   document.getElementById('authLanding').style.display = 'none';
   document.getElementById('authFormWrap').style.display = 'block';
-  document.getElementById('authErr').textContent = mode === 'register' ? 'إنشاء الحسابات الجديدة متوقف مؤقتًا حتى ربطها بخادم التحقق الآمن.' : '';
+  document.getElementById('authErr').textContent = mode === 'register' ? 'التسجيل الرسمي يتطلب اسمك والبريد الإلكتروني ورقم الجوال. ستصلك رسالة تحقق على بريدك.' : '';
   document.getElementById('authName').value = '';
   const emailField=document.getElementById('authEmailField'), phoneField=document.getElementById('authPhoneField');
   if(document.getElementById('authEmail')) document.getElementById('authEmail').value = '';
   if(document.getElementById('authPhone')) document.getElementById('authPhone').value = '';
-  if(emailField) emailField.style.display = 'none';
-  if(phoneField) phoneField.style.display = 'none';
+  if(emailField) emailField.style.display = mode === 'register' ? 'block' : 'none';
+  if(phoneField) phoneField.style.display = mode === 'register' ? 'block' : 'none';
   document.getElementById('authUsername').value = '';
   document.getElementById('authPassword').value = '';
-  document.getElementById('authNameField').style.display = 'none';
-  document.getElementById('authFormTitle').textContent = mode === 'register' ? 'التسجيل الجديد غير متاح مؤقتًا' : 'تسجيل الدخول الآمن';
-  document.getElementById('authSubmitBtn').textContent = 'دخول';
+  document.getElementById('authNameField').style.display = mode === 'register' ? 'block' : 'none';
+  document.getElementById('authFormTitle').textContent = mode === 'register' ? 'إنشاء حساب طالب رسمي' : 'تسجيل الدخول الآمن';
+  document.getElementById('authSubmitBtn').textContent = mode === 'register' ? 'إنشاء الحساب وإرسال التحقق' : 'دخول';
+  document.getElementById('authRememberField').style.display = mode === 'register' ? 'none' : 'block';
 }
 function closeAuthForm(){
   document.getElementById('authLanding').style.display = 'grid';
@@ -2011,15 +2012,31 @@ async function submitAuth(){
   err.textContent = '';
   const username = document.getElementById('authUsername').value.trim();
   const password = document.getElementById('authPassword').value;
+  if(authMode === 'register'){
+    const name = document.getElementById('authName').value.trim();
+    const email = document.getElementById('authEmail').value.trim();
+    const phone = document.getElementById('authPhone').value.trim();
+    if(!name || !email || !phone || !username || !password){ err.textContent = 'جميع الحقول إجبارية: الاسم والبريد ورقم الجوال واسم المستخدم وكلمة المرور'; return; }
+    if(password.length < 12){ err.textContent = 'كلمة المرور يجب ألا تقل عن 12 حرفًا'; return; }
+    try{
+      const result = await window.hanabilaSupabaseAuth.signUp({name, username, email, phone, password});
+      err.textContent = result.message || 'تم إنشاء الحساب. تحقق من بريدك الإلكتروني قبل تسجيل الدخول.';
+      err.style.color = 'var(--gold-soft)';
+      document.getElementById('authPassword').value = '';
+    }catch(e){
+      err.style.color = '';
+      err.textContent = e.code === 'username_taken' ? 'اسم المستخدم مستخدم مسبقًا' : e.code === 'email_taken' ? 'البريد الإلكتروني مستخدم مسبقًا' : e.code === 'invalid_registration' ? 'تحقق من البيانات، وتأكد من صحة البريد ورقم الجوال وكلمة مرور من 12 حرفًا على الأقل' : 'تعذر إنشاء الحساب؛ تحقق من البيانات وحاول مرة أخرى';
+    }
+    return;
+  }
   if(!username || !password){ err.textContent = 'الرجاء إدخال اسم المستخدم وكلمة المرور'; return; }
-  if(authMode !== 'login'){ err.textContent = 'إنشاء الحسابات الجديدة غير متاح حتى اكتمال ربطها الآمن.'; return; }
   try{
     const result = await window.hanabilaSupabaseAuth.signIn(username, password);
     if(result.needsPasswordReset){ showForcedPasswordReset(); return; }
     await startAuthenticatedSession(result.user.id);
   }catch(e){
     console.warn('Supabase login failed', e);
-    err.textContent = e.code === 'server_not_configured' ? 'خدمة الدخول لم تُجهّز بعد على الخادم.' : 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير مفعّل بعد.';
+    err.textContent = e.code === 'server_not_configured' ? 'خدمة الدخول لم تُجهّز بعد على الخادم.' : e.code === 'email_not_confirmed' ? 'تحقق من بريدك الإلكتروني أولًا، ثم أعد تسجيل الدخول.' : 'اسم المستخدم أو كلمة المرور غير صحيحة، أو أن الحساب غير مفعّل بعد.';
   }
 }
 async function startAuthenticatedSession(userId){

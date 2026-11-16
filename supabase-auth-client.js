@@ -72,6 +72,11 @@
       return { user: this.user, needsPasswordReset: !!this.user?.needsPasswordReset };
     }
 
+    async signUp({ name, username, email, phone, password }) {
+      const result = await this._post(AUTH_URL, { action: "register", name, username, email, phone, password });
+      return result;
+    }
+
     async refresh() {
       const saved = this.session || this._readSession();
       if (!saved?.refresh_token) throw Object.assign(new Error("session_expired"), { code: "session_expired" });
