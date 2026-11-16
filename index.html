@@ -5622,10 +5622,15 @@ async function init(){
     await startAuthenticatedSession(restored.user.id);
   }catch(e){
     console.warn('Supabase session restore failed', e);
-    try{ await window.hanabilaSupabaseAuth.signOut(); }catch(_){}
-    session.userId = null;
+    const authFailure = ['session_expired','account_not_linked','unauthorized'].includes(e?.code);
+    if(authFailure){
+      try{ await window.hanabilaSupabaseAuth.signOut(); }catch(_){}
+      session.userId = null;
+    }
     const errorBox = document.getElementById('authErr');
-    if(errorBox) errorBox.textContent = 'انتهت الجلسة أو تعذر تحميل بيانات الحساب. سجّل الدخول من جديد.';
+    if(errorBox) errorBox.textContent = authFailure
+      ? 'انتهت الجلسة أو تعذر التحقق من الحساب. سجّل الدخول من جديد.'
+      : 'تم تسجيل الدخول، لكن تعذر تحميل بعض بيانات الموقع مؤقتًا. أعد تحميل الصفحة أو حاول مرة أخرى.';
   }
 }
 </script>
