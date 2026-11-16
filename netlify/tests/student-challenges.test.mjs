@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import handler, { parseOperation, MAX_BODY_BYTES, MAX_AYAT_TEXT, MAX_GAME_ANSWER } from "./student-challenges.mjs";
+import handler, { parseOperation, MAX_BODY_BYTES, MAX_AYAT_TEXT, MAX_GAME_ANSWER } from "../functions/student-challenges.mjs";
 
 const AUTH_ID = "00000000-0000-4000-8000-000000000001";
 const SERVICE = "student-challenges-test-service-secret";

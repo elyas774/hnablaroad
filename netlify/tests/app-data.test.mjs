@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import handler, { cleanProjection, projectChatRow, projectSharedRow, studentCanReadSharedKey } from "./app-data.mjs";
+import handler, { cleanProjection, projectChatRow, projectSharedRow, studentCanReadSharedKey } from "../functions/app-data.mjs";
 
 test("student projection removes credentials and sensitive other-student fields", () => {
   const row = {

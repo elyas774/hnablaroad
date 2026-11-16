@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import handler, { config } from "./auth.mjs";
+import handler, { config } from "../functions/auth.mjs";
 
 const AUTH_ID = "00000000-0000-4000-8000-000000000001";
 const ACCESS = "access-token-for-test";

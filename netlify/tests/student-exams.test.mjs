@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import handler, { parseAttachment, parseOperation } from "./student-exams.mjs";
+import handler, { parseAttachment, parseOperation } from "../functions/student-exams.mjs";
 
 const AUTH_ID = "00000000-0000-4000-8000-000000000001";
 const SERVICE = "student-exams-test-service-secret";

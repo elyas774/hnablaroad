@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
-import handler, { BUCKET, calendarDate, excuseRpcArgs, parseAttachment, parseOperation } from "./student-leaves.mjs";
+import handler, { BUCKET, calendarDate, excuseRpcArgs, parseAttachment, parseOperation } from "../functions/student-leaves.mjs";
 
 const AUTH_ID = "00000000-0000-4000-8000-000000000001";
 const SERVICE = "student-leaves-test-service-secret";
