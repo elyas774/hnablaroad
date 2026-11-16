@@ -9,8 +9,6 @@
 <meta name="netlify-deploy" content="https://netlify.new/?utm_campaign=ai-legible&amp;utm_source=meta&amp;utm_medium=referral&amp;utm_id=873ff6d1-8b5a-41a0-961b-8cabf41a55e2">
 <link rel="manifest" href="/manifest.webmanifest"><meta name="theme-color" content="#c6a04a"><meta name="mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"><meta name="apple-mobile-web-app-title" content="طريق الحنابلة"><meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1">
 <title>طريق الحنابلة</title>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-messaging-compat.js"></script>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Amiri:ital,wght@0,400;0,700;1,400&family=Amiri+Quran&family=Tajawal:wght@300;400;500;700;900&display=swap" rel="stylesheet">
 <style>
@@ -1268,37 +1266,8 @@ label{color:#c4d4da;}
 <script src="/supabase-auth-client.js"></script>
 <script src="/supabase-data-adapter.js"></script>
 <script>
-/* Firebase is retained for FCM push notifications only. Application data and files use authenticated Supabase gateways. */
-const firebaseConfig = {
-  apiKey: "AIzaSyA0D-L7UaLtfgfY1KVEsjYU_PJjt7IZI_w",
-  authDomain: "hnabla-5e19d.firebaseapp.com",
-  projectId: "hnabla-5e19d",
-  messagingSenderId: "1056306730013",
-  appId: "1:1056306730013:web:8b0389d83537e8e370e2f4"
-};
-let _fcmReady = true;
-try{
-  if(typeof firebase === 'undefined') throw new Error('Firebase Messaging SDK not loaded');
-  firebase.initializeApp(firebaseConfig);
-}catch(e){
-  _fcmReady = false;
-  console.error('FCM initialization failed:', e);
-}
 const _db = window.hanabilaSupabaseDb;
 const _storage = window.hanabilaSupabaseStorage;
-if(!_fcmReady){
-  document.addEventListener('DOMContentLoaded', () => {
-    const banner = document.createElement('div');
-    banner.style.cssText = 'position:fixed;top:0;left:0;right:0;z-index:99999;background:#7a1f1f;color:#fff;padding:12px 16px;text-align:center;font-family:Tahoma,Arial;font-size:13.5px;line-height:1.7;';
-    banner.textContent = '⚠️ تعذّر تحميل إشعارات الجوال الفورية (FCM) فقط؛ تسجيل الدخول والبيانات تعمل عبر Supabase.';
-    document.body.prepend(banner);
-  });
-}
-
-/* ===== مفتاح VAPID لإشعارات الجوال الحقيقية (FCM) =====
-   احصل عليه من: Firebase Console > إعدادات المشروع > Cloud Messaging >
-   Web configuration > Generate key pair، ثم الصقه هنا بدل النص بين علامتي التنصيص. */
-const FCM_VAPID_KEY = "BBPsFapawIhQ-H7XjjhKUiU26_EAmH577_MWBkuxRmjHT-9Fx4TRJAyx27AJpJBuHpEZARbsgKXvZ0fZfbHNTxE";
 
 window.storage = {
   async get(key, shared){
@@ -1647,7 +1616,7 @@ async function seedDefaultUsers(){
 function normalizeLeaderId(value){
   if(value === null || value === undefined) return '';
   let v = String(value).trim();
-  // Firebase قد يعيد القيمة كسلسلة JSON مقتبسة مثل \"ainvcvh3\".
+  // قد تصل القيمة كسلسلة JSON مقتبسة مثل \"ainvcvh3\".
   for(let i=0; i<2; i++){
     if((v.startsWith('\"') && v.endsWith('\"')) || (v.startsWith("'") && v.endsWith("'"))){
       v = v.slice(1,-1).trim();
@@ -2199,7 +2168,7 @@ function showPage(id){
 function updateRoleUI(user){
   document.getElementById('curUserName').textContent = user.name;
   document.getElementById('curUserRole').textContent = isLeader(user) ? 'قائد الأسبوع' : 'طالب';
-  // إعادة مزامنة أدوات القائد فور وصول صلاحياته من Firebase، حتى لا تبقى مخفية بعد تسجيل الدخول.
+  // إعادة مزامنة أدوات القائد فور وصول صلاحياته من Supabase، حتى لا تبقى مخفية بعد تسجيل الدخول.
   if(currentPage === 'exams'){
     if(typeof renderSmartRecBox === 'function') renderSmartRecBox();
     if(typeof renderExamQuestionsAdmin === 'function') renderExamQuestionsAdmin();
@@ -2770,9 +2739,8 @@ async function refreshNotifications(){
 
 /* ===== إشعارات فورية على الجوال (لحظة بلحظة) =====
    طبقتان تعملان معًا:
-   1) أثناء فتح التطبيق (حتى في الخلفية): استماع مباشر لقاعدة البيانات + إشعار نظام فوري.
-   2) والتطبيق مغلق تمامًا: إشعارات Firebase Cloud Messaging (FCM) الحقيقية،
-      تصل عبر خادم Google حتى لو المتصفح مقفول بالكامل — تحتاج نشر Cloud Function (راجع ملف التعليمات). */
+   1) أثناء فتح التطبيق: استماع عبر بوابة Supabase المصادق عليها + إشعار نظام فوري.
+   2) والتطبيق مغلق تمامًا: Web Push عبر VAPID وNetlify Functions، دون Firebase. */
 let notifServiceWorkerReg = null;
 let notifListenerAttached = false;
 async function registerNotifServiceWorker(){
@@ -2782,15 +2750,15 @@ async function registerNotifServiceWorker(){
     return notifServiceWorkerReg;
   }catch(e){ console.warn('تعذّر تسجيل service worker', e); return null; }
 }
-async function saveFcmToken(token){
+async function savePushSubscription(token){
   if(!token) return;
   try{ await window.hanabilaSupabaseAuth.pushSubscription('subscribe', token); updatePushStatusText('تم تفعيل الإشعارات على هذا الجهاز'); }
   catch(e){ console.warn('تعذر حفظ اشتراك الإشعارات',e); updatePushStatusText('تعذر تفعيل الإشعارات'); }
 }
-async function setupFcmToken(reg){
+async function setupPushSubscription(reg){
   if(!reg || !('PushManager' in window)) return null;
   const subscription = await reg.pushManager.getSubscription() || await reg.pushManager.subscribe({userVisibleOnly:true,applicationServerKey:urlBase64ToUint8Array(WEB_PUSH_PUBLIC_KEY)});
-  await saveFcmToken(subscription.toJSON());
+  await savePushSubscription(subscription.toJSON());
   return subscription;
 }
 const WEB_PUSH_PUBLIC_KEY = 'BAPbSTSmcLsNiMS1peStLDYeRHiibl-4BUilFQBrRMRMYvkwMZRGQqq9_iNkK6kRcdz3D7qtqPs8_9Wd-B-esiU';
@@ -2806,7 +2774,7 @@ async function requestPushPermission(){
     const permission = await Notification.requestPermission();
     if(permission !== 'granted'){ updatePushStatusText('لم يتم السماح بالإشعارات'); return; }
     const reg = notifServiceWorkerReg || await registerNotifServiceWorker();
-    await setupFcmToken(reg);
+    await setupPushSubscription(reg);
     updatePushStatusText(); toast('تم تفعيل الإشعارات على هذا الجهاز');
   }catch(e){ console.error('push permission failed',e); toast('تعذر تفعيل الإشعارات'); }
 }
@@ -5231,8 +5199,8 @@ async function saveGeneratedAiExam(){
   if(!user||!exam||!Array.isArray(exam.questions)||!exam.questions.length){toast('ولّد اختبارًا أولًا');return;}
   try{
     await transactionalSharedArray('aiExams', list => { list.unshift({id:uid(), title:exam.title||'اختبار ذكي', source:exam.source.slice(0,6000), questions:exam.questions.slice(0,20), createdBy:user.id, authorName:user.name, createdAt:new Date().toISOString(), date:nowStr()}); if(list.length>100) list.length=100; });
-    const r=await window.storage.get('aiExams',true); state.aiExams=JSON.parse(r.value||'[]'); renderSavedAiExams(); toast('تم حفظ الاختبار في Firestore');
-  }catch(e){ console.error('saveGeneratedAiExam failed',e); toast('تعذّر حفظ الاختبار، تحقق من اتصال Firebase'); }
+    const r=await window.storage.get('aiExams',true); state.aiExams=JSON.parse(r.value||'[]'); renderSavedAiExams(); toast('تم حفظ الاختبار في Supabase');
+  }catch(e){ console.error('saveGeneratedAiExam failed',e); toast('تعذّر حفظ الاختبار، تحقق من اتصال Supabase'); }
 }
 function renderSavedAiExams(){
   const box=document.getElementById('savedAiExams'); if(!box)return;
