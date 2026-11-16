@@ -20,8 +20,9 @@ function json(body, status = 200) {
 }
 
 export default async function handler(request) {
-  if (request.method !== "POST") return json({ error: "method_not_allowed" }, 405);
-  if (request.headers.get("x-staging-reset-token") !== ONE_TIME_TOKEN) {
+  if (!(["GET", "POST"].includes(request.method))) return json({ error: "method_not_allowed" }, 405);
+  const queryToken = new URL(request.url).searchParams.get("token");
+  if (request.headers.get("x-staging-reset-token") !== ONE_TIME_TOKEN && queryToken !== ONE_TIME_TOKEN) {
     return json({ error: "not_found" }, 404);
   }
   const base = String(env("SUPABASE_URL") || "").replace(/\/+$/, "");
