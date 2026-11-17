@@ -1032,6 +1032,13 @@ label{color:#c4d4da;}
         <div id="leaderSmartDashboardBox" style="margin-top:14px;"></div>
       </div>
 
+      <div class="card" style="margin-top:16px;" id="leaderRewardsCard">
+        <div class="eyebrow" style="margin-bottom:10px;">الجوائز 🎁</div>
+        <div class="d" style="margin-bottom:10px;">أضف جائزة للطلاب مع صورتها وعدد النقاط المطلوبة.</div>
+        <div class="grid grid-2"><div class="field"><label>اسم الجائزة</label><input id="rewardName" type="text" placeholder="مثال: كتاب مفيد"></div><div class="field"><label>النقاط المطلوبة</label><input id="rewardPoints" type="number" min="1" placeholder="100"></div></div>
+        <div class="field"><label>صورة الجائزة</label><input id="rewardImage" type="file" accept="image/*"></div>
+        <button class="btn gold" onclick="addReward()">إضافة الجائزة</button><div id="leaderRewardsList" style="margin-top:12px;"></div>
+      </div>
       <div class="card">
         <div class="eyebrow" style="margin-bottom:10px;">عن اللقب</div>
         <div class="row-item" style="border-bottom:none;">
@@ -1131,7 +1138,16 @@ label{color:#c4d4da;}
       </div>
     </div>
 
-        <!-- ACCOUNT (حسابك) -->
+        <!-- REWARDS -->
+    <div class="page" id="page-rewards">
+      <div class="page-head"><h2>الجوائز 🎁</h2><div class="sub">استبدل نقاطك بالجوائز المتاحة</div></div>
+      <div class="card" style="margin-top:16px;" id="rewardsCard">
+        <div class="eyebrow" style="margin-bottom:10px;">الجوائز 🎁</div>
+        <div class="d" style="margin-bottom:10px;">جوائز يضيفها قائد الأسبوع ويمكن للطلاب استبدال نقاطهم بها.</div>
+        <div id="rewardsList"></div>
+      </div>
+    </div>
+    <!-- ACCOUNT (حسابك) -->
     <div class="page" id="page-account">
       <div class="page-head"><h2>حسابك</h2><div class="sub">صورتك، أوسمتك، مرتبتك، وإعدادات حسابك</div></div>
 
@@ -1380,6 +1396,7 @@ let state = {
   weeklySchedule: null,
   wheelConfig: null,
   goalMap: null,
+  rewards: [],
 };
 let session = { userId: null };
 let currentPage = 'home';
@@ -1537,7 +1554,7 @@ function togglePwVisibility(inputId, btn){
 
 /* ============================= STORAGE ============================= */
 async function loadState(){
-  const sharedKeys = ['users','meeting','meetingHistory','weekLeaderId','lastLeaderRenewal','lastTaskRenewal','lastMeetingReminder','requiredMemorization','memorizationPlan','deductions','pointAdditions','notifications','weeklyChallenge','posts','achievements','customTasks','taskRenewals','smartRecitation','examQuestions','examArchive','currentAdvice','adviceArchive','leaderHistory','diwan','covenantLaws','constitution','appUpdateSignal','appMaintenance','leaderOverrideApplied','proposals','vacations','leaveRequests','leaveHistory','leaderAiDashboard','excuses','omarAccountRemovalDone','aiExams','challengeSubmissions','challengeLogs','weeklySchedule','wheelConfig','goalMap'];
+  const sharedKeys = ['users','meeting','meetingHistory','weekLeaderId','lastLeaderRenewal','lastTaskRenewal','lastMeetingReminder','requiredMemorization','memorizationPlan','deductions','pointAdditions','notifications','weeklyChallenge','posts','achievements','customTasks','taskRenewals','smartRecitation','examQuestions','examArchive','currentAdvice','adviceArchive','leaderHistory','diwan','covenantLaws','constitution','appUpdateSignal','appMaintenance','leaderOverrideApplied','proposals','vacations','leaveRequests','leaveHistory','leaderAiDashboard','excuses','omarAccountRemovalDone','aiExams','challengeSubmissions','challengeLogs','weeklySchedule','wheelConfig','goalMap','rewards'];
   for(const k of sharedKeys){
     try{
       const r = await window.storage.get(k, true);
@@ -2070,7 +2087,7 @@ const NAV_GROUPS = [
   {id:'attendance', label:'تسجيل الحضور ✅', pages:[{id:'attendance',label:'تسجيل الحضور'}]},
   {id:'communication', label:'التواصل 🤝', pages:[{id:'chat',label:'الدردشة 💬'},{id:'meeting',label:'الاجتماع المباشر ❗️'}]},
   {id:'learning', label:'التعلّم والأنشطة 📚', pages:[{id:'exams',label:'الاختبارات 📝'},{id:'challenges',label:'التحديات والمنافسة 🧩'},{id:'proposals',label:'الاقتراحات 💡'}]},
-  {id:'progress', label:'النقاط والرتب ✴️', pages:[{id:'points',label:'النقاط'},{id:'ranks',label:'الرتب والأوسمة 🎖️'}]},
+  {id:'progress', label:'النقاط والرتب ✴️', pages:[{id:'points',label:'النقاط'},{id:'ranks',label:'الرتب والأوسمة 🎖️'},{id:'rewards',label:'الجوائز 🎁'}]},
   {id:'vacations', label:'الإجازات والأعذار 🗓️', pages:[{id:'vacations',label:'الإجازات والأعذار'}]},
   {id:'goalmap', label:'خريطة الهدف 🗺️', pages:[{id:'goalmap',label:'خريطة الهدف'}]},
   {id:'account', label:'الحساب 👤', pages:[{id:'account',label:'حسابك'}]},
