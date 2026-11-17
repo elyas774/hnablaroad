@@ -556,6 +556,11 @@ label{color:#c4d4da;}
 @media(max-width:600px){.exam-question-card{padding:13px}.exam-passage{font-size:14px}.exam-question-title{font-size:14px}}
 
 </style>
+<style>
+
+/* Reference feature styles merged without legacy providers */
+
+</style>
 </head>
 <body>
 
@@ -711,6 +716,25 @@ label{color:#c4d4da;}
 
 
 
+      <section aria-labelledby="prayerTimesTitle" class="card prayer-card">
+<div class="prayer-head">
+<h3 id="prayerTimesTitle">مواقيت الصلاة اليوم</h3>
+<div class="prayer-location">الدمام · توقيت مكة المكرمة (UTC+3)</div>
+</div>
+<div aria-live="polite" class="prayer-next">
+<div><div class="label">الصلاة القادمة</div><div class="name" id="nextPrayerName">—</div><div class="time" id="nextPrayerTime">—</div></div>
+<div class="remaining" id="nextPrayerCountdown">00:00:00</div>
+</div>
+<div class="prayer-list" id="prayerTimesList"></div>
+<div class="prayer-note">الأذان من جدول المواقيت المرفق لعام 2026. الإقامة محسوبة وفق الفواصل المعتمدة للاجتماع.</div>
+<div class="meeting-next" style="margin-top:14px;margin-bottom:0;">
+<div>
+<div class="label">التجمع القادم للاجتماع</div>
+<div class="name" id="mnDay">—</div>
+</div>
+<div class="remaining" id="mnCountdown">00:00:00</div>
+</div>
+</section>
       <div class="card" style="margin-top:16px;text-align:center;padding:24px;">
         <div class="eyebrow" style="margin-bottom:10px;">قائد الأسبوع</div>
         <div id="homeWeekLeaderName" style="font-family:'Amiri',serif;font-size:22px;color:var(--gold-soft);">
@@ -1109,7 +1133,20 @@ label{color:#c4d4da;}
       </div>
     </div>
 
-    <!-- ACCOUNT (حسابك) -->
+<!-- GOAL MAP (خريطة الهدف) -->
+    <div class="page" id="page-goalmap">
+      <div class="page-head"><h2>خريطة الهدف 🗺️</h2><div class="sub">مسيرة الموقع ومسيرة الكتب — خطوة تلو الأخرى</div></div>
+      <div class="card">
+        <div class="gm-head"><div class="eyebrow">🧭 مسيرة الموقع</div><button type="button" class="gm-add" style="display:none;" onclick="goalMapAdd('site')" title="إضافة إنجاز جديد">＋</button></div>
+        <div id="gmSite" class="gm-track"></div>
+      </div>
+      <div class="card" style="margin-top:16px;">
+        <div class="gm-head"><div class="eyebrow">📚 مسيرة الكتب</div><button type="button" class="gm-add" style="display:none;" onclick="goalMapAdd('books')" title="إضافة كتاب جديد">＋</button></div>
+        <div id="gmBooks" class="gm-track"></div>
+      </div>
+    </div>
+
+        <!-- ACCOUNT (حسابك) -->
     <div class="page" id="page-account">
       <div class="page-head"><h2>حسابك</h2><div class="sub">صورتك، أوسمتك، مرتبتك، وإعدادات حسابك</div></div>
 
@@ -1355,6 +1392,9 @@ let state = {
   aiExams: [],
   challengeSubmissions: [],
   challengeLogs: [],
+  weeklySchedule: null,
+  wheelConfig: null,
+  goalMap: null,
 };
 let session = { userId: null };
 let currentPage = 'home';
@@ -1512,7 +1552,7 @@ function togglePwVisibility(inputId, btn){
 
 /* ============================= STORAGE ============================= */
 async function loadState(){
-  const sharedKeys = ['users','meeting','meetingHistory','weekLeaderId','lastLeaderRenewal','lastTaskRenewal','lastMeetingReminder','requiredMemorization','memorizationPlan','deductions','pointAdditions','notifications','weeklyChallenge','posts','achievements','customTasks','taskRenewals','smartRecitation','examQuestions','examArchive','currentAdvice','adviceArchive','leaderHistory','diwan','covenantLaws','constitution','appUpdateSignal','appMaintenance','leaderOverrideApplied','proposals','vacations','leaveRequests','leaveHistory','leaderAiDashboard','excuses','omarAccountRemovalDone','aiExams','challengeSubmissions','challengeLogs'];
+  const sharedKeys = ['users','meeting','meetingHistory','weekLeaderId','lastLeaderRenewal','lastTaskRenewal','lastMeetingReminder','requiredMemorization','memorizationPlan','deductions','pointAdditions','notifications','weeklyChallenge','posts','achievements','customTasks','taskRenewals','smartRecitation','examQuestions','examArchive','currentAdvice','adviceArchive','leaderHistory','diwan','covenantLaws','constitution','appUpdateSignal','appMaintenance','leaderOverrideApplied','proposals','vacations','leaveRequests','leaveHistory','leaderAiDashboard','excuses','omarAccountRemovalDone','aiExams','challengeSubmissions','challengeLogs','weeklySchedule','wheelConfig','goalMap'];
   for(const k of sharedKeys){
     try{
       const r = await window.storage.get(k, true);
@@ -2048,6 +2088,7 @@ const NAV_GROUPS = [
   {id:'progress', label:'النقاط والرتب ✴️', pages:[{id:'points',label:'النقاط'},{id:'ranks',label:'الرتب والأوسمة 🎖️'}]},
   {id:'vacations', label:'الإجازات والأعذار 🗓️', pages:[{id:'vacations',label:'الإجازات والأعذار'}]},
   {id:'diwan', label:'الديوان 📜', pages:[{id:'diwan',label:'الديوان'}]},
+  {id:'goalmap', label:'خريطة الهدف 🗺️', pages:[{id:'goalmap',label:'خريطة الهدف'}]},
   {id:'account', label:'الحساب 👤', pages:[{id:'account',label:'حسابك'}]},
   {id:'leader', label:'قيادة الأسبوع 👑', pages:[{id:'leader',label:'لوحة القائد'}], leaderOnly:true}
 ];
@@ -2142,6 +2183,7 @@ function showPage(id){
   if(activePage){document.querySelectorAll('.nav-group.open').forEach(g=>g.classList.remove('open'));activePage.closest('.nav-group')?.classList.add('open');}
   updateMiniVideoPlayerVisibility(id);
   if(id === 'home'){ renderHome(); startHomeCountdown(); } else { stopHomeCountdown(); }
+  if(id === 'goalmap'){ try{ renderGoalMap(); }catch(e){ console.warn('goal map unavailable',e); } }
   if(id === 'attendance') renderAttendancePage();
   if(id === 'chat'){ renderChat(); markChatSeen(); }
   if(id === 'meeting') renderMeetingPage();
@@ -2947,6 +2989,8 @@ function getNextMeetingDate(){
   return candidates[0];
 }
 function renderHome(){
+  try{ renderPrayerTimes(); }catch(e){ console.warn("prayer render unavailable",e); }
+  try{ renderScheduleBox(); }catch(e){ console.warn("schedule render unavailable",e); }
   renderHomeVacationBanner();
   const box = document.getElementById('scheduleBox');
   box.innerHTML = WEEKLY_SCHEDULE.map(sec => `
@@ -5632,6 +5676,432 @@ async function init(){
       ? 'انتهت الجلسة أو تعذر التحقق من الحساب. سجّل الدخول من جديد.'
       : 'تم تسجيل الدخول، لكن تعذر تحميل بعض بيانات الموقع مؤقتًا. أعد تحميل الصفحة أو حاول مرة أخرى.';
   }
+}
+
+
+/* ===== Features merged from user reference file; Supabase/auth preserved ===== */
+const PRAYER_DAMMAM_2026 = {"asr":[["14:39","14:40","14:41","14:41","14:42","14:43","14:44","14:44","14:45","14:46","14:46","14:47","14:48","14:48","14:49","14:50","14:51","14:51","14:52","14:53","14:53","14:54","14:55","14:55","14:56","14:57","14:57","14:58","14:59","14:59","15:00"],["15:00","15:01","15:02","15:02","15:03","15:03","15:04","15:04","15:05","15:05","15:06","15:06","15:07","15:07","15:08","15:08","15:09","15:09","15:09","15:10","15:10","15:10","15:11","15:11","15:11","15:12","15:12","15:12"],["15:12","15:12","15:13","15:13","15:13","15:13","15:13","15:13","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:14","15:13"],["15:13","15:13","15:13","15:13","15:13","15:13","15:12","15:12","15:12","15:12","15:12","15:12","15:11","15:11","15:11","15:11","15:11","15:10","15:10","15:10","15:10","15:10","15:09","15:09","15:09","15:09","15:09","15:08","15:08","15:08"],["15:08","15:08","15:07","15:07","15:07","15:07","15:07","15:07","15:06","15:06","15:06","15:06","15:06","15:06","15:06","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05"],["15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:05","15:06","15:06","15:06","15:06","15:06","15:06","15:07","15:07","15:07","15:07","15:07","15:08","15:08","15:08","15:08","15:08","15:09","15:09","15:09","15:09"],["15:10","15:10","15:10","15:10","15:11","15:11","15:11","15:11","15:12","15:12","15:12","15:12","15:13","15:13","15:13","15:13","15:13","15:14","15:14","15:14","15:14","15:14","15:15","15:15","15:15","15:15","15:15","15:15","15:15","15:15","15:15"],["15:15","15:15","15:15","15:16","15:16","15:15","15:15","15:15","15:15","15:15","15:15","15:15","15:15","15:15","15:15","15:14","15:14","15:14","15:14","15:14","15:13","15:13","15:13","15:13","15:12","15:12","15:12","15:11","15:11","15:11","15:10"],["15:10","15:09","15:09","15:08","15:08","15:08","15:07","15:07","15:06","15:06","15:05","15:05","15:04","15:03","15:03","15:02","15:02","15:01","15:01","15:00","14:59","14:59","14:58","14:57","14:57","14:56","14:55","14:55","14:54","14:53"],["14:53","14:52","14:51","14:51","14:50","14:49","14:49","14:48","14:47","14:47","14:46","14:45","14:45","14:44","14:44","14:43","14:42","14:42","14:41","14:40","14:40","14:39","14:39","14:38","14:37","14:37","14:36","14:36","14:35","14:35","14:34"],["14:34","14:33","14:33","14:32","14:32","14:31","14:31","14:30","14:30","14:30","14:29","14:29","14:29","14:28","14:28","14:28","14:28","14:28","14:27","14:27","14:27","14:27","14:27","14:27","14:27","14:27","14:27","14:27","14:27","14:27"],["14:27","14:27","14:27","14:27","14:27","14:28","14:28","14:28","14:28","14:29","14:29","14:29","14:29","14:30","14:30","14:31","14:31","14:32","14:32","14:32","14:33","14:33","14:34","14:35","14:35","14:36","14:36","14:37","14:37","14:38","14:39"]],"maghrib":[["16:59","16:59","17:00","17:01","17:02","17:02","17:03","17:04","17:04","17:05","17:06","17:07","17:07","17:08","17:09","17:10","17:11","17:11","17:12","17:13","17:14","17:15","17:15","17:16","17:17","17:18","17:18","17:19","17:20","17:21","17:21"],["17:22","17:23","17:24","17:24","17:25","17:26","17:27","17:27","17:28","17:29","17:29","17:30","17:31","17:32","17:32","17:33","17:34","17:34","17:35","17:35","17:36","17:37","17:37","17:38","17:38","17:39","17:40","17:40"],["17:41","17:41","17:42","17:43","17:43","17:44","17:44","17:45","17:45","17:46","17:46","17:47","17:47","17:48","17:48","17:49","17:49","17:50","17:50","17:51","17:51","17:52","17:52","17:53","17:53","17:54","17:54","17:55","17:55","17:56","17:56"],["17:57","17:57","17:58","17:58","17:58","17:59","17:59","18:00","18:00","18:01","18:01","18:02","18:02","18:03","18:03","18:04","18:04","18:05","18:05","18:06","18:06","18:07","18:07","18:08","18:08","18:09","18:10","18:10","18:11","18:11"],["18:12","18:12","18:13","18:13","18:14","18:14","18:15","18:15","18:16","18:17","18:17","18:18","18:18","18:19","18:19","18:20","18:20","18:21","18:22","18:22","18:23","18:23","18:24","18:24","18:25","18:25","18:26","18:26","18:27","18:27","18:28"],["18:28","18:29","18:29","18:30","18:30","18:30","18:31","18:31","18:32","18:32","18:32","18:33","18:33","18:34","18:34","18:34","18:34","18:35","18:35","18:35","18:35","18:36","18:36","18:36","18:36","18:36","18:36","18:36","18:37","18:37"],["18:37","18:37","18:37","18:37","18:37","18:36","18:36","18:36","18:36","18:36","18:36","18:36","18:35","18:35","18:35","18:34","18:34","18:34","18:33","18:33","18:33","18:32","18:32","18:31","18:31","18:30","18:30","18:29","18:29","18:28","18:28"],["18:27","18:26","18:26","18:25","18:24","18:23","18:23","18:22","18:21","18:20","18:20","18:19","18:18","18:17","18:16","18:15","18:14","18:14","18:13","18:12","18:11","18:10","18:09","18:08","18:07","18:06","18:05","18:04","18:03","18:02","18:01"],["18:00","17:59","17:58","17:56","17:55","17:54","17:53","17:52","17:51","17:50","17:49","17:48","17:46","17:45","17:44","17:43","17:42","17:41","17:40","17:39","17:37","17:36","17:35","17:34","17:33","17:32","17:31","17:30","17:29","17:27"],["17:26","17:25","17:24","17:23","17:22","17:21","17:20","17:19","17:18","17:17","17:16","17:15","17:14","17:13","17:12","17:11","17:10","17:09","17:08","17:07","17:06","17:05","17:04","17:04","17:03","17:02","17:01","17:00","17:00","16:59","16:58"],["16:57","16:57","16:56","16:55","16:55","16:54","16:54","16:53","16:53","16:52","16:52","16:51","16:51","16:50","16:50","16:49","16:49","16:49","16:48","16:48","16:48","16:48","16:47","16:47","16:47","16:47","16:47","16:47","16:47","16:47"],["16:47","16:47","16:47","16:47","16:47","16:47","16:47","16:48","16:48","16:48","16:48","16:49","16:49","16:49","16:50","16:50","16:50","16:51","16:51","16:52","16:52","16:53","16:53","16:54","16:54","16:55","16:55","16:56","16:57","16:57","16:58"]],"isha":[["18:29","18:29","18:30","18:31","18:32","18:32","18:33","18:34","18:34","18:35","18:36","18:37","18:37","18:38","18:39","18:40","18:41","18:41","18:42","18:43","18:44","18:45","18:45","18:46","18:47","18:48","18:48","18:49","18:50","18:51","18:51"],["18:52","18:53","18:54","18:54","18:55","18:56","18:57","18:57","18:58","18:59","18:59","19:00","19:01","19:02","19:02","19:03","19:04","19:04","19:05","19:05","19:06","19:07","19:07","19:08","19:08","19:09","19:10","19:10"],["19:11","19:11","19:12","19:13","19:13","19:14","19:14","19:15","19:15","19:16","19:16","19:17","19:17","19:18","19:18","19:19","19:19","19:20","19:20","19:21","19:21","19:22","19:22","19:23","19:23","19:24","19:24","19:25","19:25","19:26","19:26"],["19:27","19:27","19:28","19:28","19:28","19:29","19:29","19:30","19:30","19:31","19:31","19:32","19:32","19:33","19:33","19:34","19:34","19:35","19:35","19:36","19:36","19:37","19:37","19:38","19:38","19:39","19:40","19:40","19:41","19:41"],["19:42","19:42","19:43","19:43","19:44","19:44","19:45","19:45","19:46","19:47","19:47","19:48","19:48","19:49","19:49","19:50","19:50","19:51","19:52","19:52","19:53","19:53","19:54","19:54","19:55","19:55","19:56","19:56","19:57","19:57","19:58"],["19:58","19:59","19:59","20:00","20:00","20:00","20:01","20:01","20:02","20:02","20:02","20:03","20:03","20:04","20:04","20:04","20:04","20:05","20:05","20:05","20:05","20:06","20:06","20:06","20:06","20:06","20:06","20:06","20:07","20:07"],["20:07","20:07","20:07","20:07","20:07","20:06","20:06","20:06","20:06","20:06","20:06","20:06","20:05","20:05","20:05","20:04","20:04","20:04","20:03","20:03","20:03","20:02","20:02","20:01","20:01","20:00","20:00","19:59","19:59","19:58","19:58"],["19:57","19:56","19:56","19:55","19:54","19:53","19:53","19:52","19:51","19:50","19:50","19:49","19:48","19:47","19:46","19:45","19:44","19:44","19:43","19:42","19:41","19:40","19:39","19:38","19:37","19:36","19:35","19:34","19:33","19:32","19:31"],["19:30","19:29","19:28","19:26","19:25","19:24","19:23","19:22","19:21","19:20","19:19","19:18","19:16","19:15","19:14","19:13","19:12","19:11","19:10","19:09","19:07","19:06","19:05","19:04","19:03","19:02","19:01","19:00","18:59","18:57"],["18:56","18:55","18:54","18:53","18:52","18:51","18:50","18:49","18:48","18:47","18:46","18:45","18:44","18:43","18:42","18:41","18:40","18:39","18:38","18:37","18:36","18:35","18:34","18:34","18:33","18:32","18:31","18:30","18:30","18:29","18:28"],["18:27","18:27","18:26","18:25","18:25","18:24","18:24","18:23","18:23","18:22","18:22","18:21","18:21","18:20","18:20","18:19","18:19","18:19","18:18","18:18","18:18","18:18","18:17","18:17","18:17","18:17","18:17","18:17","18:17","18:17"],["18:17","18:17","18:17","18:17","18:17","18:17","18:17","18:18","18:18","18:18","18:18","18:19","18:19","18:19","18:20","18:20","18:20","18:21","18:21","18:22","18:22","18:23","18:23","18:24","18:24","18:25","18:25","18:26","18:27","18:27","18:28"]]};
+
+const PRAYER_LABELS = {fajr:'الفجر', dhuhr:'الظهر', asr:'العصر', maghrib:'المغرب', isha:'العشاء'};
+
+const IQAMA_OFFSETS = {fajr:25, dhuhr:15, asr:20, maghrib:10, isha:20};
+
+const PRAYER_ORDER = ['fajr','dhuhr','asr','maghrib','isha'];
+
+const DAMMAM_OFFSET_MIN = 180;
+
+const WEEKDAY_NAMES = ['الأحد','الاثنين','الثلاثاء','الأربعاء','الخميس','الجمعة','السبت'];
+
+const SCHEDULE_REFS = {asr:'أذان العصر', maghrib:'أذان المغرب', isha:'أذان العشاء', abs:'وقت ثابت'};
+
+const SCHEDULE_VERSION = 5;
+
+const DEFAULT_SCHEDULE = [
+  {
+    title:'الأحد والثلاثاء', days:[0,2], mode:'prayer',
+    items:[
+      {label:'التجمع', fromRef:'asr', from:45, toRef:'asr', to:60},
+      {label:'مراجعة الماضي', fromRef:'asr', from:61, toRef:'asr', to:75},
+      {label:'الاستماع مع الكتابة', fromRef:'asr', from:76, toRef:'asr', to:120},
+      {label:'إلقاء ما قد كُتب، والمناقشة', fromRef:'asr', from:121, toRef:'asr', to:135},
+      {label:'كتابة الإنجاز والمهام والمقرر الحفظي والأسئلة في الموقع', fromRef:'asr', from:136, toRef:null, to:null}
+    ]
+  },
+  {
+    title:'الجمعة', days:[5], mode:'prayer',
+    items:[
+      {label:'التجمع', fromRef:'maghrib', from:0, toRef:'maghrib', to:30},
+      {label:'مراجعة الماضي', fromRef:'maghrib', from:31, toRef:'maghrib', to:45},
+      {label:'الاستماع مع الكتابة', fromRef:'maghrib', from:46, toRef:'isha', to:0},
+      {label:'إلقاء ما قد كُتب، والمناقشة', fromRef:'isha', from:1, toRef:'isha', to:10},
+      {label:'التجول', fromRef:'isha', from:11, toRef:null, to:null}
+    ]
+  }
+];
+
+let scheduleDraft = null;
+
+function dammamParts(date){
+  const t = new Date(date.getTime() + DAMMAM_OFFSET_MIN*60000);
+  return {y:t.getUTCFullYear(), m:t.getUTCMonth()+1, d:t.getUTCDate(), wd:t.getUTCDay()};
+}
+
+function dammamToDate(y,m,d,minutes){ return new Date(Date.UTC(y,m-1,d,0,0) + (minutes - DAMMAM_OFFSET_MIN)*60000); }
+
+function prayerMinutesFor(ref,m,d){
+  const tbl = PRAYER_DAMMAM_2026[ref]; if(!tbl) return 0;
+  const mon = tbl[m-1] || tbl[0];
+  const hhmm = mon[Math.min(d,mon.length)-1] || '15:00';
+  const [h,mi] = hhmm.split(':').map(Number);
+  return h*60+mi;
+}
+
+function pointMinutes(ref,off,m,d){ return (ref==='abs' ? 0 : prayerMinutesFor(ref||'asr',m,d)) + Number(off||0); }
+
+function fmt12(min){
+  min = ((Math.round(min)%1440)+1440)%1440;
+  const h = Math.floor(min/60), mi = min%60, p = h>=12?'م':'ص', hh = h%12===0?12:h%12;
+  return hh+':'+String(mi).padStart(2,'0')+' '+p;
+}
+
+function minToHHMM(min){ min=((Math.round(min)%1440)+1440)%1440; return String(Math.floor(min/60)).padStart(2,'0')+':'+String(min%60).padStart(2,'0'); }
+
+function hhmmToMin(v){ const mm=/^(\d{1,2}):(\d{2})$/.exec(String(v||'').trim()); return mm ? Number(mm[1])*60+Number(mm[2]) : null; }
+
+function getWeeklySchedule(){
+  const ws = state.weeklySchedule;
+  if(ws && ws.version===SCHEDULE_VERSION && Array.isArray(ws.sections) && ws.sections.length) return ws.sections;
+  return DEFAULT_SCHEDULE;
+}
+
+function itemRangeText(it,m,d){
+  const start = fmt12(pointMinutes(it.fromRef,it.from,m,d));
+  if(!it.toRef) return 'من '+start+' وبعد';
+  const end = fmt12(pointMinutes(it.toRef,it.to,m,d));
+  const sp = start.split(' ')[1], ep = end.split(' ')[1];
+  return (sp===ep ? start.replace(' '+sp,'') : start)+' - '+end;
+}
+
+function renderScheduleBox(){
+  const box = document.getElementById('scheduleBox'); if(!box) return;
+  const p = dammamParts(new Date());
+  box.innerHTML = getWeeklySchedule().map(sec => {
+    const refs = [...new Set((sec.items||[]).flatMap(it=>[it.fromRef,it.toRef]).filter(r=>r && r!=='abs'))];
+    const info = refs.length ? '<div class="d" style="margin-bottom:6px;">🕌 اليوم بالدمام: '+refs.map(r=>SCHEDULE_REFS[r]+' <b>'+fmt12(prayerMinutesFor(r,p.m,p.d))+'</b>').join(' — ')+' — تتجدد الأوقات يوميًا</div>' : '';
+    return `
+    <div>
+      <div class="pill gold" style="margin-bottom:8px;">${escapeHtml(sec.title||'')}</div>
+      ${info}
+      ${(sec.items||[]).map(it => `
+        <div class="row-item">
+          <div class="main"><div class="t">${escapeHtml(it.label||'')}</div><div class="d">${escapeHtml(itemRangeText(it,p.m,p.d))}</div></div>
+        </div>
+      `).join('')}
+    </div>`;
+  }).join('');
+  const wrap = document.getElementById('scheduleEditWrap');
+  if(wrap) wrap.style.display = (isLeader(me()) && !scheduleDraft) ? 'block' : 'none';
+}
+
+function openScheduleEditor(){
+  if(!isLeader(me())) return;
+  scheduleDraft = JSON.parse(JSON.stringify(getWeeklySchedule()));
+  renderScheduleEditor();
+}
+
+function readPointInput(si,ii,which,it){
+  const refEl = document.getElementById('sd-'+which+'ref-'+si+'-'+ii), valEl = document.getElementById('sd-'+which+'-'+si+'-'+ii);
+  if(!refEl) return;
+  const newRef = refEl.value, oldRef = valEl ? valEl.dataset.ref : null;
+  const key = which==='f' ? 'from' : 'to', refKey = which==='f' ? 'fromRef' : 'toRef';
+  if(newRef==='open'){ it[refKey]=null; it[key]=null; return; }
+  let val = it[key];
+  if(valEl && oldRef){
+    if(oldRef==='abs'){ const v=hhmmToMin(valEl.value); if(v!==null) val=v; }
+    else if(valEl.value!=='' && Number.isFinite(Number(valEl.value))) val=Number(valEl.value);
+  }
+  if(newRef!==oldRef && ((newRef==='abs') !== (oldRef==='abs'))) val = newRef==='abs' ? 1350 : 0;
+  it[refKey]=newRef; it[key]=val;
+}
+
+function syncScheduleDraft(){
+  if(!scheduleDraft) return;
+  scheduleDraft.forEach((sec,si)=>{
+    const t = document.getElementById('sd-title-'+si); if(t) sec.title = t.value.trim();
+    (sec.items||[]).forEach((it,ii)=>{
+      const l = document.getElementById('sd-label-'+si+'-'+ii); if(l) it.label = l.value.trim();
+      readPointInput(si,ii,'f',it); readPointInput(si,ii,'t',it);
+    });
+  });
+}
+
+function pointEditorHtml(si,ii,which,it){
+  const inp = 'style="background:var(--night-2);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:9px;font-size:14px;width:100%;"';
+  const ref = which==='f' ? it.fromRef : it.toRef, val = which==='f' ? it.from : it.to;
+  const opts = Object.keys(SCHEDULE_REFS).concat(which==='t' ? ['open'] : []);
+  const cur = ref || 'open';
+  const sel = '<select id="sd-'+which+'ref-'+si+'-'+ii+'" onchange="syncScheduleDraft();renderScheduleEditor()" '+inp+'>'+opts.map(r=>'<option value="'+r+'"'+(r===cur?' selected':'')+'>'+(r==='open'?'مفتوح (وبعد)':SCHEDULE_REFS[r])+'</option>').join('')+'</select>';
+  let input = '';
+  if(cur==='abs') input = '<input id="sd-'+which+'-'+si+'-'+ii+'" data-ref="abs" type="text" maxlength="5" placeholder="22:30" value="'+minToHHMM(val)+'" '+inp+'>';
+  else if(cur!=='open') input = '<input id="sd-'+which+'-'+si+'-'+ii+'" data-ref="'+cur+'" type="number" step="1" value="'+Number(val||0)+'" '+inp+'>';
+  const hint = cur==='abs' ? '' : (cur==='open' ? '' : '<div class="d" style="font-size:11px;">دقائق: موجب = بعد الأذان، سالب = قبله</div>');
+  return '<div class="field"><label>'+(which==='f'?'يبدأ':'ينتهي')+'</label>'+sel+'<div style="margin-top:6px;">'+input+'</div>'+hint+'</div>';
+}
+
+function renderScheduleEditor(){
+  const box = document.getElementById('scheduleEditor'); if(!box) return;
+  if(!scheduleDraft){ box.innerHTML=''; renderScheduleBox(); return; }
+  const inp = 'style="background:var(--night-2);border:1px solid var(--line);color:var(--text);padding:8px 10px;border-radius:9px;font-size:14px;width:100%;"';
+  box.innerHTML = '<div class="card" style="background:var(--night-2);"><div class="eyebrow" style="margin-bottom:8px;">تعديل الجدول الأسبوعي</div>' +
+    '<div class="d" style="margin-bottom:10px;">لكل فقرة حدّد بدايتها ونهايتها بالنسبة لأذان العصر أو المغرب أو العشاء (بالدقائق)، أو بوقت ثابت. «مفتوح» يعني تستمر بعد وقت البداية. أول فقرة في كل يوم هي وقت التجمع للعدّاد والتذكير.</div>' +
+    scheduleDraft.map((sec,si)=>
+      '<div style="border-top:1px solid var(--line);padding-top:10px;margin-top:10px;">' +
+      '<div class="field"><label>اسم الأيام</label><input id="sd-title-'+si+'" type="text" maxlength="60" value="'+escapeHtml(sec.title||'')+'" '+inp+'></div>' +
+      (sec.items||[]).map((it,ii)=>
+        '<div style="border:1px solid var(--line);border-radius:10px;padding:10px;margin-bottom:8px;">' +
+        '<div class="field"><label>الفقرة</label><input id="sd-label-'+si+'-'+ii+'" type="text" maxlength="120" value="'+escapeHtml(it.label||'')+'" '+inp+'></div>' +
+        '<div class="grid grid-2">'+pointEditorHtml(si,ii,'f',it)+pointEditorHtml(si,ii,'t',it)+'</div>' +
+        '<button class="btn sm ghost" type="button" onclick="removeScheduleItem('+si+','+ii+')">حذف الفقرة</button></div>'
+      ).join('') +
+      '<button class="btn sm ghost" type="button" onclick="addScheduleItem('+si+')">+ إضافة فقرة</button></div>'
+    ).join('') +
+    '<div class="proposal-actions" style="margin-top:14px;"><button class="btn gold" type="button" onclick="saveScheduleEdit()">حفظ</button><button class="btn ghost" type="button" onclick="resetScheduleEdit()">استرجاع الافتراضي</button><button class="btn ghost" type="button" onclick="cancelScheduleEdit()">إلغاء</button></div></div>';
+  renderScheduleBox();
+}
+
+function addScheduleItem(si){
+  syncScheduleDraft(); const sec = scheduleDraft[si]; if(!sec) return;
+  const last = sec.items[sec.items.length-1];
+  sec.items.push({label:'فقرة جديدة', fromRef:last?(last.toRef||last.fromRef):'asr', from:last&&last.toRef?last.to:0, toRef:null, to:null});
+  renderScheduleEditor();
+}
+
+function removeScheduleItem(si,ii){ syncScheduleDraft(); scheduleDraft[si].items.splice(ii,1); renderScheduleEditor(); }
+
+function cancelScheduleEdit(){ scheduleDraft = null; renderScheduleEditor(); }
+
+function resetScheduleEdit(){ if(!confirm('استرجاع الجدول الافتراضي؟')) return; scheduleDraft = JSON.parse(JSON.stringify(DEFAULT_SCHEDULE)); renderScheduleEditor(); }
+
+async function saveScheduleEdit(){
+  const leader = me(); if(!isLeader(leader) || !scheduleDraft) return;
+  syncScheduleDraft();
+  const p = dammamParts(new Date());
+  for(const sec of scheduleDraft){
+    if(!sec.title){ toast('اكتب اسم الأيام'); return; }
+    sec.items = (sec.items||[]).filter(it=>it.label);
+    if(!sec.items.length){ toast('أضف فقرة واحدة على الأقل في «'+sec.title+'»'); return; }
+    for(const it of sec.items){
+      if(!Number.isFinite(Number(it.from)) || (it.toRef && !Number.isFinite(Number(it.to)))){ toast('أدخل أرقامًا أو أوقاتًا صحيحة في «'+it.label+'»'); return; }
+      if(it.toRef && pointMinutes(it.toRef,it.to,p.m,p.d) <= pointMinutes(it.fromRef,it.from,p.m,p.d)){ toast('نهاية «'+it.label+'» يجب أن تكون بعد بدايتها'); return; }
+    }
+  }
+  state.weeklySchedule = {version:SCHEDULE_VERSION, sections: scheduleDraft, updatedBy: leader.name, updatedAt: nowStr()};
+  scheduleDraft = null;
+  await saveShared('weeklySchedule');
+  renderScheduleEditor(); updateHomeCountdown();
+  toast('تم حفظ تعديل الجدول');
+  try{ await logDiwan('اجتماع','🗓️','عدّل '+leader.name+' الجدول الأسبوعي'); }catch(e){}
+}
+
+function prayerTimeFor(key,m,d){
+  const tbl=PRAYER_TIMES_DAMMAM_2026[key];
+  if(!tbl || m<1 || m>12) return null;
+  const v=tbl[m-1] && tbl[m-1][d-1];
+  if(!v) return null;
+  const [h,mi]=v.split(':').map(Number); return h*60+mi;
+}
+
+function prayerDateFor(y,m,d,minutes){ return dammamToDate(y,m,d,minutes); }
+
+function getPrayerDayInfo(now=new Date()){
+  const p=dammamParts(now), list=[];
+  PRAYER_ORDER.forEach(key=>{
+    const adhan=prayerTimeFor(key,p.m,p.d); if(adhan===null) return;
+    list.push({key,name:PRAYER_LABELS[key],adhan,iqama:adhan+IQAMA_OFFSETS[key],date:prayerDateFor(p.y,p.m,p.d,adhan)});
+  });
+  let next=list.find(x=>x.date>now);
+  if(!next){
+    const u=new Date(Date.UTC(p.y,p.m-1,p.d)+86400000), y=u.getUTCFullYear(), m=u.getUTCMonth()+1, d=u.getUTCDate();
+    const adhan=prayerTimeFor('fajr',m,d);
+    if(adhan!==null) next={key:'fajr',name:'الفجر',adhan,iqama:adhan+IQAMA_OFFSETS.fajr,date:prayerDateFor(y,m,d,adhan)};
+  }
+  return {list,next,p};
+}
+
+function renderPrayerTimes(){
+  const listEl=document.getElementById('prayerTimesList'); if(!listEl) return;
+  const info=getPrayerDayInfo();
+  const next=info.next;
+  listEl.innerHTML=info.list.map(x=>`<div class="prayer-item ${next&&x.key===next.key?'next':''}"><div class="prayer-name">${x.name}</div><div class="prayer-line">الأذان <b>${fmt12(x.adhan)}</b><br>الإقامة <b>${fmt12(x.iqama)}</b></div></div>`).join('');
+  if(next){
+    const name=document.getElementById('nextPrayerName'), time=document.getElementById('nextPrayerTime'), cd=document.getElementById('nextPrayerCountdown');
+    if(name) name.textContent=next.name;
+    if(time) time.textContent='الأذان '+fmt12(next.adhan)+' · الإقامة '+fmt12(next.iqama);
+    if(cd) cd.textContent=formatRemaining(next.date-new Date());
+  }
+}
+
+function goalMapData(){
+  const g=(state.goalMap&&typeof state.goalMap==='object')?state.goalMap:{};
+  return {site:Array.isArray(g.site)?g.site:[],books:Array.isArray(g.books)?g.books:[]};
+}
+
+function renderGoalMap(){
+  const user=me(),leader=!!(user&&isLeader(user)),g=goalMapData();
+  const s=document.getElementById('gmSite'),b=document.getElementById('gmBooks');
+  if(s)s.innerHTML=gmTrackMarkup(g.site,'site',leader);
+  if(b)b.innerHTML=gmTrackMarkup(g.books,'books',leader);
+  document.querySelectorAll('.gm-add').forEach(x=>{x.style.display=leader?'inline-flex':'none';});
+}
+
+async function goalMapMutate(fn){
+  const u=me();if(!u||!isLeader(u)){toast('التعديل على خريطة الهدف لقائد الأسبوع فقط');return;}
+  try{const r=await window.storage.get('goalMap',true);if(r&&r.value)state.goalMap=JSON.parse(r.value);}catch(e){}
+  const g=goalMapData();fn(g);state.goalMap=g;
+  await saveShared('goalMap');renderGoalMap();
+}
+
+function goalMapToggle(track,id){
+  goalMapMutate(g=>{const n=(g[track]||[]).find(x=>x.id===id);if(n)n.done=!n.done;});
+}
+
+function goalMapDelete(track,id){
+  if(!confirm('حذف هذه المحطة؟'))return;
+  goalMapMutate(g=>{g[track]=(g[track]||[]).filter(x=>x.id!==id);});
+}
+
+function goalMapAdd(track){
+  const u=me();if(!u||!isLeader(u)){toast('الإضافة لقائد الأسبوع فقط');return;}
+  const isBooks=track==='books';
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML='<div class="card" style="max-width:380px;width:100%;"><div class="eyebrow" style="margin-bottom:10px;"></div><div class="field"><label></label><input type="text" maxlength="80" style="width:100%;"></div><div class="field"><label>التاريخ</label><input type="date" style="width:100%;"></div><div style="display:flex;gap:8px;"><button class="btn gold" type="button" style="flex:1;">إضافة</button><button class="btn ghost" type="button" style="flex:1;">إلغاء</button></div></div>';
+  ov.querySelector('.eyebrow').textContent=isBooks?'＋ كتاب جديد في الطريق':'＋ إنجاز جديد في المسيرة';
+  ov.querySelector('label').textContent=isBooks?'اسم الكتاب':'عنوان الإنجاز';
+  document.body.appendChild(ov);
+  const txt=ov.querySelector('input[type=text]'),dt=ov.querySelector('input[type=date]'),btns=ov.querySelectorAll('button');
+  const d=new Date();dt.value=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');
+  const done=async()=>{
+    const title=txt.value.trim();if(!title){txt.focus();return;}
+    ov.remove();
+    await goalMapMutate(g=>{g[track].push({id:uid(),title:title.slice(0,80),date:dt.value||'',done:false});});
+  };
+  btns[0].onclick=done;btns[1].onclick=()=>ov.remove();
+  txt.onkeydown=e=>{if(e.key==='Enter')done();};
+  setTimeout(()=>txt.focus(),50);
+}
+
+function renderWheelLeaderTools(){
+  const t=document.getElementById('wheelLeaderTools');
+  if(t)t.style.display=isLeader(me())?'flex':'none';
+}
+
+function openWheelEditor(){
+  const u=me();
+  if(!u||!isLeader(u)){toast('تعديل العجلة لقائد الأسبوع فقط');return;}
+  if((state.wheelConfig||{}).lastEditDay===wheelLocalDay()){toast('عُدّلت نسب العجلة اليوم — يمكن التعديل مرة واحدة فقط كل يوم');return;}
+  const ov=document.createElement('div');
+  ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+  ov.innerHTML='<div class="card" style="max-width:400px;width:100%;max-height:86vh;overflow:auto;"><div class="eyebrow" style="margin-bottom:6px;">✏️ تعديل نسب العجلة</div><div class="d" style="margin-bottom:10px;font-size:12.5px;">يجب أن يكون المجموع ١٠٠٪ وأعلى نسبة مسموحة ٢٥٪. يمكن التعديل مرة واحدة فقط كل يوم.</div><div id="wheelEditRows" style="display:grid;gap:8px;"></div><div id="wheelEditSum" class="pill gold" style="margin:12px auto 0;display:flex;justify-content:center;"></div><div style="display:flex;gap:8px;margin-top:12px;"><button class="btn gold" id="wheelEditSave" type="button" style="flex:1;">حفظ</button><button class="btn ghost" id="wheelEditCancel" type="button" style="flex:1;">إلغاء</button></div></div>';
+  document.body.appendChild(ov);
+  const box=ov.querySelector('#wheelEditRows'),sumEl=ov.querySelector('#wheelEditSum'),saveBtn=ov.querySelector('#wheelEditSave');
+  const inputs=[];
+  FIXED_WHEEL_OUTCOMES.forEach(o=>{
+    const row=document.createElement('div');
+    row.style.cssText='display:flex;align-items:center;gap:8px;font-size:13px;';
+    row.innerHTML='<span style="width:16px;height:16px;border-radius:50%;flex-shrink:0;border:1px solid rgba(128,128,128,.6);"></span><span style="flex:1;"></span><input type="number" min="0" max="25" step="0.1" inputmode="decimal" style="width:76px;text-align:center;"><span>٪</span>';
+    row.children[0].style.background=o.color;
+    row.children[1].textContent=o.label;
+    const inp=row.querySelector('input');inp.value=wheelWeight(o);
+    inputs.push([o,inp]);box.appendChild(row);
+  });
+  const refresh=()=>{
+    let sum=0,bad=false;
+    inputs.forEach(([o,inp])=>{
+      const v=Math.round(parseFloat(inp.value)*10);
+      if(!Number.isFinite(v)||v<0||v>250){bad=true;inp.style.borderColor='#d62f3a';}
+      else{sum+=v;inp.style.borderColor='';}
+    });
+    const ok=!bad&&sum===1000;
+    sumEl.textContent='المجموع: '+(sum/10)+'٪'+(ok?' ✅':(bad?' — أعلى نسبة ٢٥٪':' — يجب أن يكون ١٠٠٪'));
+    saveBtn.disabled=!ok;saveBtn.style.opacity=ok?'1':'.5';
+    return ok;
+  };
+  inputs.forEach(([o,inp])=>inp.addEventListener('input',refresh));
+  refresh();
+  ov.querySelector('#wheelEditCancel').onclick=()=>ov.remove();
+  saveBtn.onclick=async()=>{
+    if(!refresh())return;
+    if((state.wheelConfig||{}).lastEditDay===wheelLocalDay()){toast('عُدّلت نسب العجلة اليوم — يمكن التعديل مرة واحدة فقط كل يوم');ov.remove();return;}
+    const weights={};
+    inputs.forEach(([o,inp])=>{weights[o.colorName]=Math.round(parseFloat(inp.value)*10)/10;});
+    state.wheelConfig={weights,lastEditDay:wheelLocalDay(),by:u.name||'',at:new Date().toISOString()};
+    await saveShared('wheelConfig');
+    ov.remove();renderFortuneWheel();toast('تم حفظ نسب العجلة');
+    try{addChallengeLog('عدّل قائد الأسبوع نسب العجلة','✏️');await saveShared('challengeLogs');}catch(e){}
+  };
+}
+
+async function resetWheelWeights(){
+  const u=me();
+  if(!u||!isLeader(u)){toast('تعديل العجلة لقائد الأسبوع فقط');return;}
+  if(!confirm('هل تريد إعادة العجلة إلى نسبها الأصلية؟'))return;
+  const cur=state.wheelConfig||{};
+  state.wheelConfig={weights:null,lastEditDay:cur.lastEditDay||null,by:u.name||'',at:new Date().toISOString()};
+  await saveShared('wheelConfig');
+  renderFortuneWheel();toast('أُعيدت العجلة إلى نسبها الأصلية');
+}
+
+function wheelLocalDay(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+
+function wheelWeight(o){
+  const cw=state.wheelConfig&&state.wheelConfig.weights&&state.wheelConfig.weights['فيروزي']!==undefined?state.wheelConfig.weights:null;
+  const w=cw?cw[o.colorName]:null;
+  return (w!==null&&w!==undefined&&Number.isFinite(Number(w)))?Number(w):o.weight;
+}
+
+function wheelSig(){return FIXED_WHEEL_OUTCOMES.map(wheelWeight).join('|');}
+
+function renderFortuneWheel(){
+  try{renderWheelLeaderTools();}catch(e){}
+  const wheel=document.getElementById('fortuneWheel');
+  if(wheel&&!wheel.dataset.built){
+    const a=360/WHEEL_SLOTS.length;
+    wheel.style.background='conic-gradient('+WHEEL_SLOTS.map((o,i)=>o.color+' '+(i*a).toFixed(3)+'deg '+((i+1)*a).toFixed(3)+'deg').join(',')+')';
+    wheel.dataset.built='1';
+  }
+  const list=document.getElementById('wheelPrizeList');
+  if(list&&list.dataset.sig!==wheelSig()){
+    list.innerHTML=FIXED_WHEEL_OUTCOMES.slice().sort((x,y)=>wheelWeight(y)-wheelWeight(x)).map(o=>'<div style="display:flex;align-items:center;gap:8px;font-size:13px;"><span style="width:16px;height:16px;border-radius:50%;flex-shrink:0;background:'+o.color+';border:1px solid rgba(128,128,128,.6);"></span><span style="flex:1;">'+escapeHtml(o.label)+'</span><span class="pill">'+wheelWeight(o)+'٪ · '+o.slots+(o.slots===1?' خانة':o.slots===2?' خانتان':' خانات')+'</span></div>').join('');
+    list.dataset.sig=wheelSig();
+  }
+}
+
+function setAutoWheelUi(){const b=document.getElementById('wheelAutoBtn'),sp=document.getElementById('wheelSpinBtn');if(b){b.textContent=autoWheelOn?'⏹ إيقاف':'🔁 باستمرار';b.className=autoWheelOn?'btn gold':'btn';}if(sp)sp.disabled=autoWheelOn;}
+
+async function toggleAutoWheel(){
+  if(autoWheelOn){autoWheelOn=false;setAutoWheelUi();return;}
+  const u=me();if(!u)return;
+  if(challengeTicketCount(u)<1){toast('لا تملك تذاكر كافية — شارك في تحدي يوم الآيات أولًا');return;}
+  if(fortuneWheelBusy)return;
+  autoWheelOn=true;setAutoWheelUi();
+  try{
+    while(autoWheelOn){
+      const cur=me();
+      if(!cur||challengeTicketCount(cur)<1)break;
+      await spinChallengeWheel();
+      await new Promise(r=>setTimeout(r,900));
+    }
+  }catch(e){console.error(e);}
+  const ended=autoWheelOn;autoWheelOn=false;setAutoWheelUi();
+  if(ended)toast('انتهت تذاكرك — توقفت العجلة');
+}
+
+function todayWheelDay(){return todayWheelKey();}
+
+function weightedWheelOutcome(){
+  const u=me();
+  const active=u&&Number(u.weakPointsBoostUntil)>Date.now();
+    const redoActive=u&&Number(u.redoAllUntil)>Date.now();
+  const brownActive=u&&u.personalTask&&Number(u.personalTask.expiresAt)>Date.now();
+  const hasVoucher=u&&Number(u.halfRewardVoucher)>0;
+  const pool=FIXED_WHEEL_OUTCOMES.filter(x=>!(x.type==='weak'&&active)&&!(x.type==='redoall'&&redoActive)&&!(x.type==='addtask'&&brownActive)&&!(x.type==='reward'&&hasVoucher));
+  const total=pool.reduce((t,x)=>t+wheelWeight(x),0),n=Math.random()*total;let acc=0;
+  for(const x of pool){acc+=wheelWeight(x);if(n<=acc)return x;}
+  return pool[pool.length-1];
+}
+
+function pickWheelStudent(){
+  return new Promise(resolve=>{
+    const others=state.users.filter(x=>x.id!==me()?.id);
+    if(!others.length){resolve(null);return;}
+    const ov=document.createElement('div');
+    ov.style.cssText='position:fixed;inset:0;z-index:99999;background:rgba(0,0,0,.6);display:flex;align-items:center;justify-content:center;padding:16px;';
+    ov.innerHTML='<div class="card" style="max-width:380px;width:100%;max-height:80vh;overflow:auto;"><div class="eyebrow" style="margin-bottom:6px;">🔴 اختر الطالب الذي ستخصم منه ٤٠ نقطة</div><div id="wheelStudentList" style="display:grid;gap:8px;"></div></div>';
+    document.body.appendChild(ov);
+    const box=ov.querySelector('#wheelStudentList');
+    others.forEach(st=>{const b=document.createElement('button');b.className='btn block';b.textContent=st.name;b.onclick=()=>{ov.remove();resolve(st);};box.appendChild(b);});
+  });
 }
 </script>
 <script src="/supabase-feature-cutover.js?v=1"></script>
