@@ -557,6 +557,9 @@ label{color:#c4d4da;}
 
 /* الديوان غير معروض في الواجهة حسب الملف المرفق */
 #page-diwan{display:none!important;}
+
+/* UI parity: hide elements that are not part of the supplied reference */
+#adviceArchiveBox,#adviceInput,#appMaintenanceOverlay,#appMaintenanceText,#badgesBox,#challengeLogBox,#cumulativeMemBox,#excuseType,#excusesList,#guessGameBox,#leaderExamCount,#leaderExamDifficulty,#leaderExamSource,#leaderExamType,#leaderPublishedExamNote,#leaderExcuseFilter,#leaveHistoryList,#usernameChangeForm,#weeklyStatsBox{display:none!important;}
 </style>
 <style>
 
@@ -747,6 +750,8 @@ label{color:#c4d4da;}
       <div class="card" style="margin-top:16px;">
         <div class="eyebrow" style="margin-bottom:10px;">الجدول الأسبوعي</div>
         <div class="grid grid-2" id="scheduleBox"></div>
+        <div id="scheduleEditWrap" style="display:none;margin-top:14px;"><button class="btn gold block" type="button" onclick="openScheduleEditor()">تعديل</button></div>
+        <div id="scheduleEditor" style="margin-top:12px;"></div>
       </div>
     </div>
 
@@ -963,7 +968,7 @@ label{color:#c4d4da;}
       <div class="card" style="margin-top:16px;">
         <div class="eyebrow" style="margin-bottom:8px;">عجلة الحظ 🎡</div>
         <div class="d" style="margin-bottom:12px;">تستخدم تذكرة واحدة. العجلة فيها 25 خانة: 20 جائزة، خانتان لإعادة المحاولة، و3 خانات بلا جوائز.</div>
-        <div style="text-align:center;"><div class="fortune-wheel-wrap"><div id="fortuneWheel" class="fortune-wheel"><div class="fortune-wheel-center">🎡</div></div><div class="fortune-wheel-pointer">▼</div></div><div id="wheelResult" class="wheel-result">أدر العجلة لتظهر النتيجة</div><button class="btn gold" onclick="spinChallengeWheel()">أدر العجلة بتذكرة</button><div class="d" style="margin-top:8px;">كل دورة تستهلك تذكرة واحدة</div></div>
+        <div id="wheelPrizeList" class="wheel-prize-list" style="display:grid;gap:6px;margin-bottom:14px;text-align:start;"></div><div style="text-align:center;"><div class="fortune-wheel-wrap"><div id="wheelLeaderTools" class="wheel-leader-tools" style="display:none;"><button type="button" class="wheel-tool-btn" onclick="openWheelEditor()" title="تعديل نسب العجلة">✏️</button><button type="button" class="wheel-tool-btn" onclick="resetWheelWeights()" title="إعادة النسب الأصلية">🔄</button></div><div id="fortuneWheel" class="fortune-wheel"><div class="fortune-wheel-center">🎡</div></div><div class="fortune-wheel-pointer">▼</div></div><div id="wheelX2Timer" class="pill gold" style="margin:6px auto;"></div><div id="wheelResult" class="wheel-result">أدر العجلة لتظهر النتيجة</div><div style="display:flex;gap:8px;justify-content:center;flex-wrap:wrap;"><button id="wheelSpinBtn" class="btn gold" onclick="spinChallengeWheel()">أدر العجلة بتذكرة</button><button id="wheelAutoBtn" class="btn" onclick="toggleAutoWheel()">🔁 باستمرار</button></div><div class="d" style="margin-top:8px;">كل دورة تستهلك تذكرة واحدة</div></div>
       </div>
 
       <div class="card" style="margin-top:16px;">
