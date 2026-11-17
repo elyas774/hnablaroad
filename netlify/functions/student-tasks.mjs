@@ -172,6 +172,7 @@ export default async function handler(request) {
 
     if (operation.op === "mine" || operation.op === "review_queue") {
       const result = await execute(actor, operation);
+      if (result?.forbidden === true) throw fail(403, "operation_forbidden");
       if (result?.ok !== true || !Array.isArray(result.items)) throw fail(503, "service_unavailable");
       return json({ items: await signRows(result.items) });
     }
