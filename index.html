@@ -555,6 +555,8 @@ label{color:#c4d4da;}
 .exam-meta{display:flex;gap:8px;flex-wrap:wrap;align-items:center;margin-bottom:12px;}
 @media(max-width:600px){.exam-question-card{padding:13px}.exam-passage{font-size:14px}.exam-question-title{font-size:14px}}
 
+/* الديوان غير معروض في الواجهة حسب الملف المرفق */
+#page-diwan{display:none!important;}
 </style>
 <style>
 
@@ -1116,23 +1118,6 @@ label{color:#c4d4da;}
       </div>
 
     </div>
-    <!-- DIWAN -->
-    <div class="page" id="page-diwan">
-      <div class="page-head"><h2>الديوان 📜</h2><div class="sub">سجل الطريق الزمني — يُدوَّن فيه كل ما يجري تلقائيًا، آلة تذكّر لا تنسى شيئًا</div></div>
-
-      <div class="card" style="margin-top:0;">
-        <div class="eyebrow" style="margin-bottom:10px;">ملف الخريجين — قادة الأسابيع السابقة 🎓</div>
-        <div id="leaderHistoryBox"></div>
-      </div>
-
-      <div class="card diwan-filters" id="diwanFilters" style="margin-top:16px;"></div>
-
-      <div class="card diwan-scroll" style="margin-top:16px;">
-        <div id="diwanList"></div>
-        <div class="empty" id="diwanEmpty" style="display:none;">لم يُسجَّل في الديوان شيء بعد</div>
-      </div>
-    </div>
-
 <!-- GOAL MAP (خريطة الهدف) -->
     <div class="page" id="page-goalmap">
       <div class="page-head"><h2>خريطة الهدف 🗺️</h2><div class="sub">مسيرة الموقع ومسيرة الكتب — خطوة تلو الأخرى</div></div>
@@ -2087,7 +2072,6 @@ const NAV_GROUPS = [
   {id:'learning', label:'التعلّم والأنشطة 📚', pages:[{id:'exams',label:'الاختبارات 📝'},{id:'challenges',label:'التحديات والمنافسة 🧩'},{id:'proposals',label:'الاقتراحات 💡'}]},
   {id:'progress', label:'النقاط والرتب ✴️', pages:[{id:'points',label:'النقاط'},{id:'ranks',label:'الرتب والأوسمة 🎖️'}]},
   {id:'vacations', label:'الإجازات والأعذار 🗓️', pages:[{id:'vacations',label:'الإجازات والأعذار'}]},
-  {id:'diwan', label:'الديوان 📜', pages:[{id:'diwan',label:'الديوان'}]},
   {id:'goalmap', label:'خريطة الهدف 🗺️', pages:[{id:'goalmap',label:'خريطة الهدف'}]},
   {id:'account', label:'الحساب 👤', pages:[{id:'account',label:'حسابك'}]},
   {id:'leader', label:'قيادة الأسبوع 👑', pages:[{id:'leader',label:'لوحة القائد'}], leaderOnly:true}
